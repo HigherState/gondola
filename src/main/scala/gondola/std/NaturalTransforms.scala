@@ -1,6 +1,6 @@
 package gondola.std
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Future, ExecutionContext}
 import gondola._
 
 trait IdentityTransforms extends ReaderMonads {
