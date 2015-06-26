@@ -25,28 +25,27 @@ class InstanceTests extends FunSuite with Matchers with ScalaFutures with Before
   type V[+T] = Valid[String, T]
 
 
-
-
   test("CQRS actor implementation on repository with a future handling on the authentication service") {
     //CQRS actors repository service.
     //Single command handler actor and single query executor actor
     val atomicHashMap = new AtomicReference[Map[UserLogin, UserCredentials]](Map.empty[UserLogin, UserCredentials])
 
-    val c = new InMemoryKeyValueCommandHandler[Id, UserLogin, UserCredentials](atomicHashMap)
-    val q = new InMemoryKeyValueQueryExecutor[Id, UserLogin, UserCredentials](atomicHashMap)
-    val cA = new ActorTransform[(KvC[UserLogin, UserCredentials])#I, Id](c)
-    val qA = new ActorTransform[(KvQ[UserLogin, UserCredentials])#I, Id](q)
+    val repo =
+      ActorN[(KvC[UserLogin, UserCredentials])#I, Id](new InMemoryKeyValueCommandHandler[Id, UserLogin, UserCredentials](atomicHashMap)) ->
+      ActorN[(KvQ[UserLogin, UserCredentials])#I, Id](new InMemoryKeyValueQueryExecutor[Id, UserLogin, UserCredentials](atomicHashMap)) |>
+      Couple[(KvD[UserLogin, UserCredentials])#I, (KvC[UserLogin, UserCredentials])#I, (KvQ[UserLogin, UserCredentials])#I, Future]
 
-    val cqT = CQTransform[(KvD[UserLogin, UserCredentials])#I, (KvC[UserLogin, UserCredentials])#I, (KvQ[UserLogin, UserCredentials])#I, Future](cA, qA)
-    val compose = cqT.>>>[FV]
-    val authCommandHandler = new AuthenticationCommandHandler[FV](compose, 10)
-    val authQueryExecutor = new AuthenticationQueryExecutor[FV](compose)
-
-    val cqT2 = CQTransform(authCommandHandler, authQueryExecutor)
-    val futureAuthenticationService = new FutureActorTransform[AuthenticationDomain, V](cqT2)
+    val liftedRepo = repo.>>>[FV]
 
 
-    //Authentication service will handle futures from repository actor
+    val c = new AuthenticationCommandHandler[FV](liftedRepo, 10)
+    val q = new AuthenticationQueryExecutor[FV](liftedRepo)
+    val cq = Couple(c,q)
+    val futureAuthenticationService = ActorN.Future[AuthenticationDomain, V](cq)
+    //val futureAuthenticationService = new FutureActorTransform[AuthenticationDomain, Valid](auth, None)
+//
+//
+//    //Authentication service will handle futures from repository actor
 
     whenReady(futureAuthenticationService(CreateNewUser(UserLogin("test@test.com"), Password("password")))) { result1 =>
       result1 should equal (scalaz.Success(Acknowledged))

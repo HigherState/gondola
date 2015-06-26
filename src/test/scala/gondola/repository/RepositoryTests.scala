@@ -25,10 +25,10 @@ object RepositoryTests {
 
     val c = new InMemoryKeyValueCommandHandler[Id, String, String](atomicHashMap)
     val q = new InMemoryKeyValueQueryExecutor[Id, String, String](atomicHashMap)
-    val cA = new ActorTransform[(KvC[String, String])#I, Id](c)
-    val qA = new ActorTransform[(KvQ[String, String])#I, Id](q)
+    val cA = ActorN[(KvC[String, String])#I, Id](c)
+    val qA = new ActorTransform[(KvQ[String, String])#I, Id](q, None)
 
-    val cqT = CQTransform[(KvD[String, String])#I, (KvC[String, String])#I, (KvQ[String,String])#I, Future](cA, qA)
+    val cqT = Couple[(KvD[String, String])#I, (KvC[String, String])#I, (KvQ[String,String])#I, Future](cA, qA)
 
     for {
       _ <- cqT(Add("one" -> "two"))

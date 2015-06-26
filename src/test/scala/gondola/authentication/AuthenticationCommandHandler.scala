@@ -3,9 +3,9 @@ package gondola.authentication
 import gondola._
 import gondola.repository._
 
-class AuthenticationCommandHandler[Out[+_]:VMonad]
-  (repository: (KvD[UserLogin, UserCredentials])#I ~> Out, maxNumberOfTries:Int)
-  extends AuthenticationDirectives(repository) with (AuthenticationCommand ~~> Out) {
+class AuthenticationCommandHandler[M[+_]:VMonad]
+  (repository: (KvD[UserLogin, UserCredentials])#I ~> M, maxNumberOfTries:Int)
+  extends AuthenticationDirectives(repository) with (AuthenticationCommand ~~> M) {
 
   import VMonad._
 
