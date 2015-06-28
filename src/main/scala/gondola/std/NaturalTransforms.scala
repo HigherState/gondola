@@ -111,6 +111,10 @@ trait ReaderTransforms {
 
 trait IOTransforms {
 
+  implicit val IOId = new (IO ~> Id) {
+    def apply[A](fa: IO[A]): Id[A] = fa.run()
+  }
+
   implicit def IOIOValid[E] = new (({type R[+T] = IO[T]})#R ~> ({type IV[+T] = IOValid[E,T]})#IV) {
     def apply[T](value: IO[T]) =
       value.map(scalaz.Success(_))
