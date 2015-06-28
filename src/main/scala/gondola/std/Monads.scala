@@ -145,9 +145,44 @@ trait FutureMonads extends ValidMonads with DisrupterMonads {
     }
 }
 
+trait IOMonads extends ValidMonads {
+  implicit val ioMonad = new Monad[({type R[+T] = IO[T]})#R] {
+    def bind[A, B](fa:IO[A])(f: (A) => IO[B]):IO[B] =
+      fa.flatMap(f)
 
+    def point[A](a: => A) =
+      IO(a)
+  }
+
+  implicit def ioValidMonad[E] = new FMonad[E, ({type RV[+T] = IOValid[E,T]})#RV] {
+    def bind[A, B](fa: IOValid[E,A])(f: (A) => IOValid[E,B]):IOValid[E, B] =
+      fa.flatMap{
+        case Failure(vf) =>
+          ioMonad.point(validMonad.failures(vf))
+        case Success(s) =>
+          f(s)
+      }
+
+    def point[A](a: => A) =
+      ioMonad.point(Success(a))
+
+    def onFailure[T, S >: T](value: IOValid[E,T])(f: (NonEmptyList[E]) => IOValid[E,S]) =
+      value.flatMap{
+        case Failure(vf) =>
+          f(vf)
+        case _ => value
+      }
+
+    def failures(validationFailures: => NonEmptyList[E]) =
+      ioMonad.point(validMonad.failures(validationFailures))
+
+    def failure(validationFailure: => E) =
+      ioMonad.point(validMonad.failure(validationFailure))
+  }
+}
 
 trait ReaderMonads extends ValidMonads with FutureMonads {
+
   implicit def readerMonad[F] = new Monad[({type R[+T] = Reader[F,T]})#R] {
     def bind[A, B](fa:Reader[F,A])(f: (A) => Reader[F,B]):Reader[F,B] =
       fa.flatMap(f)

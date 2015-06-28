@@ -11,6 +11,8 @@ package object std {
 
   type Valid[+E, +T] = ValidationNel[E, T]
 
+  type IOValid[+E, +T] = IO[Valid[E, T]]
+
   type ReaderValid[F, +E, +T] = Reader[F, Valid[E, T]]
 
   type EitherValid[+E, +T] = scalaz.\/[NonEmptyList[E], T]

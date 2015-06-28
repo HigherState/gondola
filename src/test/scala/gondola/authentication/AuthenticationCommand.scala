@@ -1,8 +1,8 @@
 package gondola.authentication
 
-import gondola.{Acknowledged, Domain}
+import gondola.Acknowledged
 
-sealed trait AuthenticationDomain[Y] extends Domain[Y]
+sealed trait AuthenticationDomain[Y] extends Serializable
 
 sealed trait AuthenticationCommand[Y] extends AuthenticationDomain[Y]
 

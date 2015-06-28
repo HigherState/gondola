@@ -17,4 +17,7 @@ package object gondola {
   implicit class TupleExt[A,B](val a:(A,B)) extends AnyVal  {
     def |>[C](func:(A, B) => C) = func(a._1, a._2)
   }
+
+  def acknowledged[M[+_]](implicit m:Monad[M]) =
+    m.point(Acknowledged)
 }

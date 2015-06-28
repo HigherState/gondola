@@ -3,7 +3,7 @@ package gondola.std
 import scala.concurrent.{Future, ExecutionContext}
 import gondola._
 
-trait IdentityTransforms extends ReaderMonads {
+trait IdentityTransforms extends ReaderMonads with IOMonads {
 
   implicit def directPipe[T[_]] = new (T ~> T) {
 
@@ -107,6 +107,19 @@ trait ReaderTransforms {
       def apply[T](value:ReaderFuture[F,T]) =
         value.map(_.map(scalaz.Success(_)))
     }
+}
+
+trait IOTransforms {
+
+  implicit def IOIOValid[E] = new (({type R[+T] = IO[T]})#R ~> ({type IV[+T] = IOValid[E,T]})#IV) {
+    def apply[T](value: IO[T]) =
+      value.map(scalaz.Success(_))
+  }
+
+  implicit def IOReader[F] = new (IO ~> ({type R[+T] = Reader[F, T]})#R) {
+    def apply[T](value: IO[T]) =
+      Reader(t => value.run())
+  }
 }
 
 object Transforms extends IdentityTransforms with ValidTransforms with FutureTransforms with ReaderTransforms

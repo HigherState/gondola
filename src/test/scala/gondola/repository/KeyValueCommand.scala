@@ -1,8 +1,8 @@
 package gondola.repository
 
-import gondola.{Acknowledged, Domain}
+import gondola.Acknowledged
 
-sealed trait KeyValueDomain[Y, Key, Value] extends Domain[Y]
+sealed trait KeyValueDomain[Y, Key, Value] extends Serializable
 
 sealed trait KeyValueCommand[Y, Key, Value] extends KeyValueDomain[Y, Key, Value]
 
