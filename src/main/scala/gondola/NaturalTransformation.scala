@@ -13,7 +13,6 @@ trait ~>[-F[_], +G[_]] {
 
   def >>>[H[_]](implicit t: G ~> H): F ~> H =
     t.compose[F](this)
-
 }
 
 trait ~~>[-F[_], +G[_]] extends ~>[F, G] {

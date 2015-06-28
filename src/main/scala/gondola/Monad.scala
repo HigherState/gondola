@@ -24,6 +24,13 @@ trait MonadOps {
 
   def sequence[Out[+_], T](l:List[Out[T]])(implicit monad:Monad[Out]):Out[List[T]] =
     monad.sequence(l)
+
+  implicit class SeqMonad[Out[+_], A](in: Seq[Out[A]])(implicit monad: Monad[Out]) {
+    import scalaz.Scalaz._
+
+    def sequence:Out[Seq[A]] =
+      monad.sequence(in.toList)
+  }
 }
 
 object Monad extends MonadOps with ToMonadOps with OptionOps
