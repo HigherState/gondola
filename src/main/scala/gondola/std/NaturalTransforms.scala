@@ -3,6 +3,8 @@ package gondola.std
 import scala.concurrent.{Future, ExecutionContext}
 import gondola._
 
+import scalaz.Id
+
 trait IdentityTransforms extends ReaderMonads with IOMonads {
 
   implicit def directPipe[T[_]] = new (T ~> T) {
@@ -37,6 +39,12 @@ trait IdentityTransforms extends ReaderMonads with IOMonads {
   implicit def idReaderFutureValidPipe[F,E](implicit ex:ExecutionContext): (Id ~> ({type FRV[+T] = ReaderFutureValid[F, E, T]})#FRV) =
     identityOutPipe[({type FRV[+T] = ReaderFutureValid[F, E, T]})#FRV]
 
+  implicit val ioIOPipe:(Id ~> IO) =
+    identityOutPipe[IO]
+
+  implicit def idIOValidPipe[E]:(Id ~> ({type IV[+T] = IOValid[E,T]})#IV) =
+    identityOutPipe[({type IV[+T] = IOValid[E,T]})#IV]
+
 }
 
 trait ValidTransforms {
@@ -49,6 +57,11 @@ trait ValidTransforms {
   implicit def ValidReaderValid[F,E] = new (({type V[+T] = Valid[E,T]})#V ~> ({type RV[+T] = ReaderValid[F, E,T]})#RV) {
 
     def apply[T](value: Valid[E, T]) = ReaderFacade(value)
+  }
+
+  implicit def ValidIOValid[F,E] = new (({type V[+T] = Valid[E,T]})#V ~> ({type RV[+T] = IOValid[E,T]})#RV) {
+
+    def apply[T](value: Valid[E, T]) = IO(value)
   }
 
   implicit def ValidReaderFutureValid[F,E] = new (({type V[+T] = Valid[E,T]})#V ~> ({type RV[+T] = ReaderFutureValid[F, E,T]})#RV) {
@@ -114,6 +127,9 @@ trait IOTransforms {
   implicit val IOId = new (IO ~> Id) {
     def apply[A](fa: IO[A]): Id[A] = fa.run()
   }
+  implicit def IOValidValid[E] = new (({type IV[+T] = IOValid[E,T]})#IV ~> ({type V[+T] = Valid[E, T]})#V) {
+    def apply[A](fa: IOValid[E, A]): Valid[E, A] = fa.run()
+  }
 
   implicit def IOIOValid[E] = new (({type R[+T] = IO[T]})#R ~> ({type IV[+T] = IOValid[E,T]})#IV) {
     def apply[T](value: IO[T]) =
@@ -124,6 +140,10 @@ trait IOTransforms {
     def apply[T](value: IO[T]) =
       Reader(t => value.run())
   }
+  implicit def IOReaderValid[F, E] = new (IO ~> ({type R[+T] = ReaderValid[F, E, T]})#R) {
+    def apply[T](value: IO[T]) =
+      Reader(t => scalaz.Success(value.run()))
+  }
 }
 
-object Transforms extends IdentityTransforms with ValidTransforms with FutureTransforms with ReaderTransforms
+object Transforms extends IdentityTransforms with ValidTransforms with FutureTransforms with ReaderTransforms with IOTransforms

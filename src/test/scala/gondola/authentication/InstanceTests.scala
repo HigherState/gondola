@@ -31,15 +31,15 @@ class InstanceTests extends FunSuite with Matchers with ScalaFutures with Before
     val atomicHashMap = new AtomicReference[Map[UserLogin, UserCredentials]](Map.empty[UserLogin, UserCredentials])
 
     val repo =
-      ActorN[(KvC[UserLogin, UserCredentials])#I, Id](new InMemoryKeyValueCommandHandler[Id, UserLogin, UserCredentials](atomicHashMap)) ->
-      ActorN[(KvQ[UserLogin, UserCredentials])#I, Id](new InMemoryKeyValueQueryExecutor[Id, UserLogin, UserCredentials](atomicHashMap)) |>
-      Couple[(KvD[UserLogin, UserCredentials])#I, (KvC[UserLogin, UserCredentials])#I, (KvQ[UserLogin, UserCredentials])#I, Future]
+      ActorN[(KvC[UserLogin, UserCredentials])#I, Id](new InMemoryKeyValueCommandHandler[Id, UserLogin, UserCredentials](atomicHashMap)) ->  // Kvc ~> Id ~> Future
+      ActorN[(KvQ[UserLogin, UserCredentials])#I, Id](new InMemoryKeyValueQueryExecutor[Id, UserLogin, UserCredentials](atomicHashMap)) |> // Kvq ~> Id ~> Future
+      Couple[(KvD[UserLogin, UserCredentials])#I, (KvC[UserLogin, UserCredentials])#I, (KvQ[UserLogin, UserCredentials])#I, Future] //KvD ~> Future
 
-    val liftedRepo = repo.>>>[FV]
+    val liftedRepo:KvD[UserLogin, UserCredentials]#I ~> FV = repo.>>>[FV] //KvD ~> Future ~> FutureValid
 
 
-    val c = new AuthenticationCommandHandler[FV](liftedRepo, 10)
-    val q = new AuthenticationQueryExecutor[FV](liftedRepo)
+    val c = new AuthenticationCommandHandler(liftedRepo, 10)
+    val q = new AuthenticationQueryExecutor(liftedRepo)
     val cq = Couple(c,q)
     val futureAuthenticationService = ActorN.Future[AuthenticationDomain, V](cq)
     //val futureAuthenticationService = new FutureActorTransform[AuthenticationDomain, Valid](auth, None)

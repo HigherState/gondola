@@ -9,7 +9,7 @@ trait Reader[F, +T] {
 }
 
 object Reader {
-  def apply[F, T](f: (F) => T) =
+  def apply[F, T](f: (F) => T):Reader[F,T] =
     ReaderImpl(f)
 }
 
