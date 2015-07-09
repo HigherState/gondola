@@ -106,7 +106,7 @@ object ActorN {
     def apply[D[_], R[+_], S](transform: => D ~> ({type I[+T] = Reader[S, R[T]]})#I, name:String)(implicit af:ActorRefFactory, timeout:Timeout): (D ~> ({type I[+T] = Reader[S, Future[R[T]]]})#I) =
       new ReaderActorTransform[D, R, S](transform, Some(name))
 
-    def seelction[D[_], R[+_], S](actorSelection:ActorSelection)(implicit af:ActorRefFactory, timeout:Timeout): ~>[D, ({type I[+T] = Reader[S, Future[R[T]]]})#I] =
+    def selection[D[_], R[+_], S](actorSelection:ActorSelection)(implicit af:ActorRefFactory, timeout:Timeout): ~>[D, ({type I[+T] = Reader[S, Future[R[T]]]})#I] =
       new ReaderSelectionTransform[D, R, S](actorSelection)
   }
 }

@@ -1,9 +1,9 @@
 package gondola.std
 
-import scala.concurrent.{Future, ExecutionContext}
+import scala.concurrent.ExecutionContext
 import gondola._
 
-import scalaz.Id
+import scalaz.{Success, Monoid}
 
 trait IdentityTransforms extends ReaderMonads with IOMonads {
 
@@ -30,8 +30,20 @@ trait IdentityTransforms extends ReaderMonads with IOMonads {
   implicit def idFutureValidPipe[E](implicit ex:ExecutionContext): (Id ~> ({type FV[+T] = FutureValid[E,T]})#FV) =
     identityOutPipe[({type V[+T] = FutureValid[E,T]})#V]
 
+  implicit def idWriter[L:Monoid]:(Id ~> ({type R[+T] = Writer[L,T]})#R) =
+    identityOutPipe[({type R[+T] = Writer[L,T]})#R]
+
+  implicit def idValidWriterPipe[E, L:Monoid]: (Id ~> ({type RV[+T] = ValidWriter[E, L, T]})#RV) =
+    identityOutPipe[({type RV[+T] = ValidWriter[E, L, T]})#RV]
+
   implicit def idReaderValidPipe[F,E]: (Id ~> ({type RV[+T] = ReaderValid[F, E,T]})#RV) =
     identityOutPipe[({type RV[+T] = ReaderValid[F, E,T]})#RV]
+
+  implicit def idReaderWriterPipe[F,L:Monoid]: (Id ~> ({type RV[+T] = ReaderWriter[F, L, T]})#RV) =
+    identityOutPipe[({type RV[+T] = ReaderWriter[F, L, T]})#RV]
+
+  implicit def idReaderValidWriterPipe[F,L:Monoid, E]: (Id ~> ({type RV[+T] = ReaderValidWriter[F, E, L, T]})#RV) =
+    identityOutPipe[({type RV[+T] = ReaderValidWriter[F, E, L, T]})#RV]
 
   implicit def idReaderFuturePipe[F](implicit ex:ExecutionContext): (Id ~> ({type FR[+T] = ReaderFuture[F, T]})#FR) =
     identityOutPipe[({type FR[+T] = ReaderFuture[F, T]})#FR]
@@ -39,12 +51,54 @@ trait IdentityTransforms extends ReaderMonads with IOMonads {
   implicit def idReaderFutureValidPipe[F,E](implicit ex:ExecutionContext): (Id ~> ({type FRV[+T] = ReaderFutureValid[F, E, T]})#FRV) =
     identityOutPipe[({type FRV[+T] = ReaderFutureValid[F, E, T]})#FRV]
 
-  implicit val ioIOPipe:(Id ~> IO) =
+  implicit val idIOPipe:(Id ~> IO) =
     identityOutPipe[IO]
 
   implicit def idIOValidPipe[E]:(Id ~> ({type IV[+T] = IOValid[E,T]})#IV) =
     identityOutPipe[({type IV[+T] = IOValid[E,T]})#IV]
 
+  implicit def idIOWriterPipe[L:Monoid]: (Id ~> ({type RV[+T] = IOWriter[L, T]})#RV) =
+    identityOutPipe[({type RV[+T] = IOWriter[L, T]})#RV]
+
+  implicit def idIOValidWriterPipe[E, L:Monoid]: (Id ~> ({type RV[+T] = IOValidWriter[E, L, T]})#RV) =
+    identityOutPipe[({type RV[+T] = IOValidWriter[E, L, T]})#RV]
+
+}
+
+trait WriterTransforms {
+  implicit def WriterValidWriter[L, E] = new (({type W[+T] = Writer[L,T]})#W ~> ({type WV[+T] = ValidWriter[E, L, T]})#WV) {
+
+    def apply[T](value: Writer[L, T]) =
+      scalaz.Success(value)
+  }
+
+  implicit def WriterFutureWriter[L] = new (({type W[+T] = Writer[L, T]})#W ~> ({type FW[+T] = FutureWriter[L, T]})#FW) {
+
+    def apply[T](value: Writer[L, T]) =
+      FutureLift(value)
+  }
+
+
+  implicit def WriterReaderWriter[F,L] = new (({type W[+T] = Writer[L,T]})#W ~> ({type RW[+T] = ReaderWriter[F,L,T]})#RW) {
+    def apply[A](fa: Writer[L, A]): ReaderWriter[F, L, A] =
+      ReaderFacade(fa)
+  }
+
+  implicit def WriterReaderValidWriter[F, E, L] = new (({type W[+T] = Writer[L, T]})#W ~> ({type RW[+T] = ReaderValidWriter[F, E, L, T]})#RW) {
+    def apply[A](fa: Writer[L, A]): ReaderValidWriter[F, E, L, A] =
+      ReaderFacade(Success(fa))
+  }
+
+
+  implicit def WriterIOWriter[L] = new (({type W[+T] = Writer[L,T]})#W ~> ({type IW[+T] = IOWriter[L,T]})#IW) {
+    def apply[A](fa: Writer[L, A]): IOWriter[L, A] =
+      IO(fa)
+  }
+
+  implicit def WriterIOValidWriter[E, L] = new (({type W[+T] = Writer[L, T]})#W ~> ({type IWV[+T] = IOValidWriter[E,L,T]})#IWV) {
+    def apply[A](fa: Writer[L, A]): IOValidWriter[E, L, A] =
+      IO(Success(fa))
+  }
 }
 
 trait ValidTransforms {
@@ -67,6 +121,23 @@ trait ValidTransforms {
   implicit def ValidReaderFutureValid[F,E] = new (({type V[+T] = Valid[E,T]})#V ~> ({type RV[+T] = ReaderFutureValid[F, E,T]})#RV) {
 
     def apply[T](value: Valid[E, T]) = ReaderFacade(FutureLift(value))
+  }
+
+  implicit def ValidWriterFutureValidWriter[E, L] = new (({type WV[+T] = ValidWriter[E, L, T]})#WV ~> ({type FWV[+T] = FutureValidWriter[E, L, T]})#FWV) {
+    def apply[A](fa: ValidWriter[E, L, A]): FutureValidWriter[E, L, A] =
+      FutureLift(fa)
+  }
+
+  implicit def ValidWriterReaderValidWriter[F, E, L] = new (({type WV[+T] = ValidWriter[E, L, T]})#WV ~> ({type RW[+T] = ReaderValidWriter[F,E,L,T]})#RW) {
+    def apply[A](fa: ValidWriter[E, L, A]): ReaderValidWriter[F, E, L, A] = {
+      ReaderFacade(fa)
+    }
+  }
+
+  implicit def ValidWriterIOValidWriter[E, L] = new (({type WV[+T] = ValidWriter[E, L, T]})#WV ~> ({type IWV[+T] = IOValidWriter[E,L,T]})#IWV) {
+    def apply[A](fa: ValidWriter[E,L, A]): IOValidWriter[E, L, A] = {
+      IO(fa)
+    }
   }
 
 }
@@ -120,7 +191,30 @@ trait ReaderTransforms {
       def apply[T](value:ReaderFuture[F,T]) =
         value.map(_.map(scalaz.Success(_)))
     }
+
+  implicit def ReaderReaderWriter[F,L](implicit m:Monoid[L]) = new (({type R[+T] = Reader[F,T]})#R ~> ({type RW[+T] = ReaderWriter[F,L,T]})#RW) {
+    def apply[A](fa: Reader[F, A]): ReaderWriter[F, L, A] =
+      fa.map(t => Writer(m.zero, t))
+  }
+
+  implicit def ReaderReaderValidWriter[F, E, L](implicit m:Monoid[L]) = new (({type R[+T] = Reader[F,T]})#R ~> ({type RWV[+T] = ReaderValidWriter[F, E, L, T]})#RWV) {
+    def apply[A](fa: Reader[F, A]): ReaderValidWriter[F, E, L, A] =
+      fa.map(t => Success(Writer(m.zero, t)))
+  }
+
+  implicit def ReaderWriterReaderValidWriter[F, E, L] = new (({type R[+T] = ReaderWriter[F,L,T]})#R ~> ({type RWV[+T] = ReaderValidWriter[F, E, L, T]})#RWV) {
+    def apply[A](fa: ReaderWriter[F, L, A]): ReaderValidWriter[F, E, L, A] =
+      fa.map(Success(_))
+  }
+
+  implicit def ReaderValidReaderValidWriter[F, E, L](implicit m:Monoid[L]) = new (({type R[+T] = ReaderValid[F,E,T]})#R ~> ({type RWV[+T] = ReaderValidWriter[F, E, L, T]})#RWV) {
+    def apply[A](fa: ReaderValid[F, E, A]): ReaderValidWriter[F, E, L, A] =
+      fa.map(_.map(Writer(m.zero, _)))
+  }
+
 }
+
+
 
 trait IOTransforms {
 
@@ -146,4 +240,5 @@ trait IOTransforms {
   }
 }
 
-object Transforms extends IdentityTransforms with ValidTransforms with FutureTransforms with ReaderTransforms with IOTransforms
+object Transforms extends IdentityTransforms with ValidTransforms with WriterTransforms with FutureTransforms with ReaderTransforms with IOTransforms
+

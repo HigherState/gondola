@@ -5,6 +5,7 @@ package object gondola {
     type I[Y[+_]]
   }
   type ~>![X[+_]] = TF { type I[Y[+_]] = ~>[Y, X] }
+  type !~>[X[+_]] = TF { type I[Y[+_]] = ~>[X, Y] }
 
   type EitherActor = Either[ActorRef, ActorSelection]
   type Monad[F[_]] = scalaz.Monad[F]
@@ -20,4 +21,9 @@ package object gondola {
 
   def acknowledged[M[+_]](implicit m:Monad[M]) =
     m.point(Acknowledged)
+
+  implicit class MExt[M[+_], T](val self:M[T]) extends AnyVal {
+    def ~>[N[+_]](implicit nt:M ~> N) =
+      nt(self)
+  }
 }

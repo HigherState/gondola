@@ -1,11 +1,15 @@
 package gondola.std
 
+
+
 import scala.concurrent.{CanAwait, ExecutionContext, Future}
 import gondola._
 import gondola.Reader
+import gondola.Writer
+import gondola.Monad
 import scala.util.Try
 import scala.concurrent.duration.Duration
-import scalaz.{Success, NonEmptyList, Failure, \/-, -\/}
+import scalaz._
 
 object IdMonad {
   implicit val idMonad = scalaz.Id.id
@@ -17,7 +21,19 @@ object DisrupterMonads extends DisrupterMonads
 
 object FutureMonads extends FutureMonads
 
-trait ValidMonads {
+trait WriterMonads {
+
+  implicit def writerMonad[F:Monoid] = new Monad[({type R[+T] = Writer[F, T]})#R] {
+    def point[A](a: => A): Writer[F, A] =
+      Writer.zero(a)
+
+    def bind[A, B](fa: Writer[F, A])(f: (A) => Writer[F, B]): Writer[F, B] =
+      fa.flatMap(f)
+  }
+
+}
+
+trait ValidMonads extends WriterMonads {
 
   implicit def validMonad[E] = new FMonad[E, ({type V[+T] = Valid[E,T]})#V] {
     def bind[A, B](fa: Valid[E, A])(f: (A) => Valid[E, B]): Valid[E, B] =
@@ -36,6 +52,32 @@ trait ValidMonads {
       value match {
         case Failure(n) => f(n)
         case e => e
+      }
+  }
+
+  implicit def validWriterMonad[E, F:Monoid] = new FMonad[E, ({type R[+T] = ValidWriter[E, F, T]})#R] {
+    def failure(validationFailure: => E): ValidWriter[E, F, Nothing] =
+      validMonad.failure(validationFailure)
+
+    def failures(validationFailures: => NonEmptyList[E]): ValidWriter[E, F, Nothing] =
+      validMonad.failures(validationFailures)
+
+    def onFailure[T, S >: T](value: ValidWriter[E, F, T])(f: (NonEmptyList[E]) => ValidWriter[E, F, S]): ValidWriter[E, F, S] =
+      value match {
+        case Success(_) =>
+          value
+        case Failure(vf) =>
+          f(vf)
+      }
+
+    def point[A](a: => A): ValidWriter[E, F, A] =
+      validMonad.point(writerMonad.point(a))
+
+    def bind[A, B](fa: ValidWriter[E, F, A])(f: (A) => ValidWriter[E, F, B]): ValidWriter[E, F, B] =
+      fa.flatMap{v =>
+        f(v.value).map{w =>
+          v.flatMap(_ => w)
+        }
       }
   }
 }
@@ -145,7 +187,9 @@ trait FutureMonads extends ValidMonads with DisrupterMonads {
     }
 }
 
-trait IOMonads extends ValidMonads {
+
+
+trait IOMonads extends ValidMonads with WriterMonads {
   implicit val ioMonad = new Monad[({type R[+T] = IO[T]})#R] {
     def bind[A, B](fa:IO[A])(f: (A) => IO[B]):IO[B] =
       fa.flatMap(f)
@@ -179,9 +223,47 @@ trait IOMonads extends ValidMonads {
     def failure(validationFailure: => E) =
       ioMonad.point(validMonad.failure(validationFailure))
   }
+
+  implicit def ioWriterMonad[L](implicit monoid:Monoid[L]) = new Monad[({type IW[+T] = IOWriter[L, T]})#IW] {
+    def point[A](a: => A): IOWriter[L, A] = IO(Writer.zero(a))
+
+    def bind[A, B](fa: IOWriter[L, A])(f: (A) => IOWriter[L, B]): IOWriter[L, B] =
+      fa.flatMap{w =>
+        f(w.value).map{w2 =>
+          Writer(monoid.append(w.log, w2.log), w2.value)
+        }
+      }
+  }
+
+  implicit def ioValidWriterMonad[E, L](implicit monoid:Monoid[L]) = new FMonad[E, ({type IWV[+T] = IOValidWriter[E, L, T]})#IWV] {
+    def point[A](a: => A): IOValidWriter[E, L, A] =
+      IO(Success(Writer.zero(a)))
+
+    def failure(validationFailure: => E): IOValidWriter[E, L, Nothing] =
+      IO(Failure(NonEmptyList(validationFailure)))
+
+    def failures(validationFailures: => NonEmptyList[E]): IOValidWriter[E, L, Nothing] =
+      IO(Failure(validationFailures))
+
+    def onFailure[T, S >: T](value: IOValidWriter[E, L, T])(f: (NonEmptyList[E]) => IOValidWriter[E, L, S]): IOValidWriter[E, L, S] =
+      value.flatMap{
+        case Failure(vf) =>
+          f(vf)
+        case Success(_) =>
+          value
+      }
+
+    def bind[A, B](fa: IOValidWriter[E, L, A])(f: (A) => IOValidWriter[E, L, B]): IOValidWriter[E, L, B] =
+      fa.flatMap{
+        case Failure(_) =>
+          fa.asInstanceOf[IOValidWriter[E, L, B]]
+        case Success(Writer(l, v)) =>
+          f(v).map(_.map(w => Writer(monoid.append(l, w.log), w.value)))
+      }
+  }
 }
 
-trait ReaderMonads extends ValidMonads with FutureMonads {
+trait ReaderMonads extends ValidMonads with FutureMonads with WriterMonads{
 
   implicit def readerMonad[F] = new Monad[({type R[+T] = Reader[F,T]})#R] {
     def bind[A, B](fa:Reader[F,A])(f: (A) => Reader[F,B]):Reader[F,B] =
@@ -270,5 +352,43 @@ trait ReaderMonads extends ValidMonads with FutureMonads {
       def failure(validationFailure: => E) =
         readerMonad.point(monad.point(validMonad.failure(validationFailure)))
     }
+
+  implicit def readerWriterMonad[F, L](implicit monoid:Monoid[L]) = new Monad[({type IW[+T] = ReaderWriter[F, L, T]})#IW] {
+    def point[A](a: => A): ReaderWriter[F, L, A] = ReaderFacade(Writer.zero(a))
+
+    def bind[A, B](fa: ReaderWriter[F, L, A])(f: (A) => ReaderWriter[F, L, B]): ReaderWriter[F, L, B] =
+      fa.flatMap{w =>
+        f(w.value).map{w2 =>
+          Writer(monoid.append(w.log, w2.log), w2.value)
+        }
+      }
+  }
+
+  implicit def readerValidWriterMonad[F, E, L](implicit monoid:Monoid[L]) = new FMonad[E, ({type IVW[+T] = ReaderValidWriter[F, E, L, T]})#IVW] {
+    def failure(validationFailure: => E): ReaderValidWriter[F, E, L, Nothing] =
+      ReaderFacade(Failure(NonEmptyList(validationFailure)))
+
+    def failures(validationFailures: => NonEmptyList[E]): ReaderValidWriter[F, E, L, Nothing] =
+      ReaderFacade(Failure(validationFailures))
+
+    def onFailure[T, S >: T](value: ReaderValidWriter[F, E, L, T])(f: (NonEmptyList[E]) => ReaderValidWriter[F, E, L, S]): ReaderValidWriter[F, E, L, S] =
+      value.flatMap{
+        case Success(_) =>
+          value
+        case Failure(vf) =>
+          f(vf)
+      }
+
+    def point[A](a: => A): ReaderValidWriter[F, E, L, A] =
+      ReaderFacade(Success(Writer.zero(a)))
+
+    def bind[A, B](fa: ReaderValidWriter[F, E, L, A])(f: (A) => ReaderValidWriter[F, E, L, B]): ReaderValidWriter[F, E, L, B] =
+      fa.flatMap{
+        case Success(Writer(l,v)) =>
+          f(v).map(_.map(w => Writer(monoid.append(l, w.log), w.value)))
+        case Failure(_) =>
+          fa.asInstanceOf[ReaderValidWriter[F, E, L, B]]
+      }
+  }
 }
 
