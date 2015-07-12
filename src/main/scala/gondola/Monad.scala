@@ -2,6 +2,7 @@ package gondola
 
 import scalaz._
 import scalaz.syntax.ToMonadOps
+import scala.language.higherKinds
 
 trait OptionOps {
   implicit class OptionExt[T](value:Option[T]) {
@@ -13,6 +14,10 @@ trait OptionOps {
       value.fold(default)(t =>
         f(t)
       )
+    def getOrElseM[M[+_], S >: T](f: => M[S])(implicit monad:Monad[M]):M[S] =
+      value.fold[M[S]](f)(t => monad.point(t))
+    def orElseM[M[+_], S >: T](f: => M[Option[S]])(implicit monad:Monad[M]):M[Option[S]] =
+      value.fold[M[Option[S]]](f)(t => monad.point(Some(t)))
     
     //Collect broken under 2.11 this is a workaround
     def collectF[S](pf: PartialFunction[T, S]):Option[S] =

@@ -4,11 +4,10 @@ organization := "org.higherState"
 
 version := "1.0.0"
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.7"
 
 libraryDependencies ++= Seq(
-  "org.scala-lang" % "scala-compiler" % "2.11.6",
-  "org.scala-lang" % "scala-reflect" % "2.11.6",
+  "org.scala-lang" % "scala-compiler" % "2.11.7",
   "org.scalaz" %% "scalaz-core" % "7.1.2",
   "org.scalaz" %% "scalaz-concurrent" % "7.1.0",
   "com.typesafe.akka" %% "akka-actor" % "2.3.9",
