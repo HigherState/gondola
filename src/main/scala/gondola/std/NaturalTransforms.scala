@@ -224,6 +224,9 @@ trait IOTransforms {
   implicit def IOValidValid[E] = new (({type IV[+T] = IOValid[E,T]})#IV ~> ({type V[+T] = Valid[E, T]})#V) {
     def apply[A](fa: IOValid[E, A]): Valid[E, A] = fa.run()
   }
+  implicit def IOValid[E] = new (IO ~> ({type V[+T] = Valid[E, T]})#V) {
+    def apply[A](fa: IO[A]): Valid[E, A] = Success(fa.run())
+  }
 
   implicit def IOIOValid[E] = new (({type R[+T] = IO[T]})#R ~> ({type IV[+T] = IOValid[E,T]})#IV) {
     def apply[T](value: IO[T]) =

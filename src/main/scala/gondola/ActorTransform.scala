@@ -113,7 +113,7 @@ object ActorN {
 
 //TODO: FIX THIS!!
 object Couple {
-  def apply[D[_], C[_] <: D[_], Q[_] <: D[_], R[+_]](cTransform:C ~> R, qTransform:Q ~> R): (D ~> R) =
+  def apply[D[_], C[_] <: D[_], Q[_] <: D[_], R[_]](cTransform:C ~> R, qTransform:Q ~> R): (D ~> R) =
     new ~>[D, R] {
       def apply[A](fa: D[A]): R[A] = {
         if (fa.getClass.getInterfaces.exists(f => f.getSimpleName.contains("Command")))

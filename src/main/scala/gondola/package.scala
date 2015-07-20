@@ -19,7 +19,7 @@ package object gondola {
     def |>[C](func:(A, B) => C) = func(a._1, a._2)
   }
 
-  def acknowledged[M[+_]](implicit m:Monad[M]) =
+  def acknowledged[M[+_]](implicit m:Monad[M]):M[Acknowledged] =
     m.point(Acknowledged)
 
   implicit class MExt[M[+_], T](val self:M[T]) extends AnyVal {
