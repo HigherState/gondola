@@ -386,8 +386,8 @@ trait ReaderMonads extends ValidMonads with FutureMonads with WriterMonads{
       fa.flatMap{
         case Success(Writer(l,v)) =>
           f(v).map(_.map(w => Writer(monoid.append(l, w.log), w.value)))
-        case Failure(_) =>
-          fa.asInstanceOf[ReaderValidWriter[F, E, L, B]]
+        case Failure(vf) =>
+          ReaderFacade(Failure(vf))
       }
   }
 }

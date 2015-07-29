@@ -3,6 +3,7 @@ package gondola
 import scala.concurrent.Future
 import akka.actor._
 import akka.util.Timeout
+import scala.language.higherKinds
 
 private class ActorTransform[-D[_], R[+_]](transform: => D ~> R, name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout) extends ~>[D, ({type I[+T] = Future[R[T]]})#I] {
   import akka.pattern._
@@ -123,4 +124,6 @@ object Couple {
       }
     }
 }
+
+
 
