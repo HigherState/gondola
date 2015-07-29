@@ -5,7 +5,9 @@ import akka.actor._
 import akka.util.Timeout
 import scala.language.higherKinds
 
-private class ActorTransform[-D[_], R[+_]](transform: => D ~> R, name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout) extends ~>[D, ({type I[+T] = Future[R[T]]})#I] {
+private class ActorTransform[-D[_], R[+_]](transform: => D ~> R, name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout)
+  extends ~>[D, ({type I[+T] = Future[R[T]]})#I] {
+
   import akka.pattern._
 
   def props =
@@ -23,7 +25,8 @@ private class ActorTransform[-D[_], R[+_]](transform: => D ~> R, name:Option[Str
     actorRef.ask(fa).asInstanceOf[Future[R[A]]]
 }
 
-private class FutureActorTransform[-D[_], R[+_]](transform: => D ~> ({type I[+T] = Future[R[T]]})#I, name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout) extends ~>[D, ({type I[+T] = Future[R[T]]})#I] {
+private class FutureActorTransform[-D[_], R[+_]](transform: => D ~> ({type I[+T] = Future[R[T]]})#I, name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout)
+  extends ~>[D, ({type I[+T] = Future[R[T]]})#I] {
   import akka.pattern._
 
   def props =
@@ -43,7 +46,8 @@ private class FutureActorTransform[-D[_], R[+_]](transform: => D ~> ({type I[+T]
     actorRef.ask(fa).asInstanceOf[Future[R[A]]]
 }
 
-private class ReaderActorTransform[-D[_], R[+_], S](transform: => D ~> ({type I[+T] = Reader[S, R[T]]})#I, name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout) extends ~>[D, ({type I[+T] = Reader[S, Future[R[T]]]})#I] {
+private class ReaderActorTransform[-D[_], R[+_], S](transform: => D ~> ({type I[+T] = Reader[S, R[T]]})#I, name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout)
+  extends ~>[D, ({type I[+T] = Reader[S, Future[R[T]]]})#I] {
   import akka.pattern._
 
   def props =
