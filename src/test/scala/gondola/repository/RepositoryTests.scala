@@ -23,8 +23,8 @@ object RepositoryTests {
 
     val atomicHashMap = new AtomicReference[Map[String, String]](Map.empty[String, String])
 
-    val c = new InMemoryKeyValueCommandHandler[Id, String, String](atomicHashMap)
-    val q = new InMemoryKeyValueQueryExecutor[Id, String, String](atomicHashMap)
+    val c = InMemoryKeyValueCommandHandler[Id, String, String](atomicHashMap)
+    val q = InMemoryKeyValueQueryExecutor[Id, String, String](atomicHashMap)
     val cA = ActorN[(KvC[String, String])#I, Id](c)
     val qA = new ActorTransform[(KvQ[String, String])#I, Id](q, None)
 

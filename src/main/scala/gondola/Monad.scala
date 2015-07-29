@@ -76,6 +76,18 @@ trait FMonadOps extends MonadOps {
 
 object FMonad extends PipeFMonad with FMonadOps with ToMonadOps with OptionOps
 
+trait WMonad[L, M[+_]] extends Monad[M] {
+
+  def write(log: => L):M[Nothing]
+}
+
+trait WMonadOps extends MonadOps {
+
+  def write[L, M[+_]](log: => L)(implicit wmonad:WMonad[L, M]):M[Nothing] =
+    wmonad.write(log)
+}
+
+
 object Scalaz extends
   StateFunctions        // Functions related to the state monad
   with scalaz.syntax.ToTypeClassOps    // syntax associated with type classes

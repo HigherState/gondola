@@ -11,6 +11,8 @@ package object gondola {
   type Monad[F[_]] = scalaz.Monad[F]
   type Ack = Acknowledged
 
+  type FWMonad[E, L, M[+_]] = FMonad[E, M] with WMonad[L, M]
+
   implicit class AnyExt[T](val self:T) extends AnyVal {
     def |>[U](func:T => U) = func(self)
   }

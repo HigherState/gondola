@@ -3,23 +3,25 @@ package gondola.repository
 import gondola._
 import java.util.concurrent.atomic.AtomicReference
 
-final class InMemoryKeyValueQueryExecutor[Out[+_]:Monad, Key, Value](state:AtomicReference[Map[Key, Value]])
-  extends (KvQ[Key, Value]#I ~~> Out) {
+object InMemoryKeyValueQueryExecutor {
 
-  import Monad._
+  def apply[Out[+_]:Monad, Key, Value](state:AtomicReference[Map[Key, Value]]) =
+  new (KvQ[Key, Value]#I ~~> Out) {
+    import Monad._
 
-  def handle[T] = {
-    case Contains(key) =>
-      point(state.get().contains(key))
+    def handle[T] = {
+      case Contains(key) =>
+        point(state.get().contains(key))
 
-    case Get(key) =>
-      point(state.get().get(key))
+      case Get(key) =>
+        point(state.get().get(key))
 
-    case Iterator() =>
-      point(state.get().iterator)
+      case Iterator() =>
+        point(state.get().iterator)
 
-    case Values() =>
-      point(state.get().valuesIterator)
+      case Values() =>
+        point(state.get().valuesIterator)
+    }
   }
 
 }
