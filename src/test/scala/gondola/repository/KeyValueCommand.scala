@@ -1,14 +1,14 @@
 package gondola.repository
 
-import gondola.Acknowledged
+import gondola.Ack
 
 sealed trait KeyValueDomain[Y, Key, Value] extends Serializable
 
 sealed trait KeyValueCommand[Y, Key, Value] extends KeyValueDomain[Y, Key, Value]
 
-case class Add[Key, Value](kv:(Key, Value)) extends KeyValueCommand[Acknowledged, Key, Value]
+case class Add[Key, Value](kv:(Key, Value)) extends KeyValueCommand[Ack, Key, Value]
 
-case class Remove[Key, Value](key:Key) extends KeyValueCommand[Acknowledged, Key, Value]
+case class Remove[Key, Value](key:Key) extends KeyValueCommand[Ack, Key, Value]
 
 
 

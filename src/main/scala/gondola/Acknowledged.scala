@@ -1,5 +1,5 @@
 package gondola
 
-trait Acknowledged extends Serializable
+trait Ack extends Serializable
 
-object Acknowledged extends Acknowledged
+object Acknowledged extends Ack

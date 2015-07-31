@@ -21,9 +21,9 @@ package object std {
 
   type ValidWriter[+E, L, +T] = Valid[E, Writer[L, T]]
 
-  type ReaderWriter[F, L, T] = Reader[F, Writer[L, T]]
+  type ReaderWriter[F, L, +T] = Reader[F, Writer[L, T]]
 
-  type ReaderValidWriter[F, E, L, T] = Reader[F, Valid[E, Writer[L, T]]]
+  type ReaderValidWriter[F, E, L, +T] = Reader[F, Valid[E, Writer[L, T]]]
 
   type EitherValid[+E, +T] = scalaz.\/[NonEmptyList[E], T]
 

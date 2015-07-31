@@ -78,14 +78,19 @@ object FMonad extends PipeFMonad with FMonadOps with ToMonadOps with OptionOps
 
 trait WMonad[L, M[+_]] extends Monad[M] {
 
-  def write(log: => L):M[Nothing]
+  def write(log:L):M[Ack] =
+    write(log, Acknowledged)
+
+  def write[T](log:L, value:T):M[T]
 }
 
 trait WMonadOps extends MonadOps {
 
-  def write[L, M[+_]](log: => L)(implicit wmonad:WMonad[L, M]):M[Nothing] =
+  def write[L, M[+_]](log: => L)(implicit wmonad:WMonad[L, M]):M[Ack] =
     wmonad.write(log)
 }
+
+trait FWMonad[E, L, M[+_]] extends FMonad[E, M] with WMonad[L, M]
 
 
 object Scalaz extends

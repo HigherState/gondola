@@ -1,7 +1,5 @@
 package gondola.std
 
-
-
 import scala.concurrent.{CanAwait, ExecutionContext, Future}
 import gondola._
 import gondola.Reader
@@ -10,6 +8,7 @@ import gondola.Monad
 import scala.util.Try
 import scala.concurrent.duration.Duration
 import scalaz._
+import scala.language.reflectiveCalls
 
 object IdMonad {
   implicit val idMonad = scalaz.Id.id
@@ -23,7 +22,11 @@ object FutureMonads extends FutureMonads
 
 trait WriterMonads {
 
-  implicit def writerMonad[F:Monoid] = new Monad[({type R[+T] = Writer[F, T]})#R] {
+  implicit def writerMonad[F:Monoid] = new WMonad[F, ({type R[+T] = Writer[F, T]})#R] {
+
+    def write[T](log: F, value: T): Writer[F, T] =
+      Writer(log, value)
+
     def point[A](a: => A): Writer[F, A] =
       Writer.zero(a)
 
@@ -55,7 +58,11 @@ trait ValidMonads extends WriterMonads {
       }
   }
 
-  implicit def validWriterMonad[E, F:Monoid] = new FMonad[E, ({type R[+T] = ValidWriter[E, F, T]})#R] {
+  implicit def validWriterMonad[E, F:Monoid] = new FWMonad[E, F, ({type R[+T] = ValidWriter[E, F, T]})#R] {
+
+    def write[T](log:F, value:T): ValidWriter[E, F, T] =
+      Success(Writer(log, value))
+
     def failure(validationFailure: => E): ValidWriter[E, F, Nothing] =
       validMonad.failure(validationFailure)
 
@@ -224,7 +231,11 @@ trait IOMonads extends ValidMonads with WriterMonads {
       ioMonad.point(validMonad.failure(validationFailure))
   }
 
-  implicit def ioWriterMonad[L](implicit monoid:Monoid[L]) = new Monad[({type IW[+T] = IOWriter[L, T]})#IW] {
+  implicit def ioWriterMonad[L](implicit monoid:Monoid[L]) = new WMonad[L, ({type IW[+T] = IOWriter[L, T]})#IW] {
+
+    override def write[T](log: L, value: T): IOWriter[L, T] =
+      IO(Writer(log, value))
+
     def point[A](a: => A): IOWriter[L, A] = IO(Writer.zero(a))
 
     def bind[A, B](fa: IOWriter[L, A])(f: (A) => IOWriter[L, B]): IOWriter[L, B] =
@@ -235,7 +246,11 @@ trait IOMonads extends ValidMonads with WriterMonads {
       }
   }
 
-  implicit def ioValidWriterMonad[E, L](implicit monoid:Monoid[L]) = new FMonad[E, ({type IWV[+T] = IOValidWriter[E, L, T]})#IWV] {
+  implicit def ioValidWriterMonad[E, L](implicit monoid:Monoid[L]) = new FWMonad[E, L, ({type IWV[+T] = IOValidWriter[E, L, T]})#IWV] {
+
+    def write[T](log: L, value: T): IOValidWriter[E, L, T] =
+      IO(Success(Writer(log, value)))
+
     def point[A](a: => A): IOValidWriter[E, L, A] =
       IO(Success(Writer.zero(a)))
 
@@ -353,7 +368,11 @@ trait ReaderMonads extends ValidMonads with FutureMonads with WriterMonads{
         readerMonad.point(monad.point(validMonad.failure(validationFailure)))
     }
 
-  implicit def readerWriterMonad[F, L](implicit monoid:Monoid[L]) = new Monad[({type IW[+T] = ReaderWriter[F, L, T]})#IW] {
+  implicit def readerWriterMonad[F, L](implicit monoid:Monoid[L]) = new WMonad[L, ({type IW[+T] = ReaderWriter[F, L, T]})#IW] {
+
+    def write[T](log: L, value: T): ReaderWriter[F, L, T] =
+      ReaderFacade(Writer(log, value))
+
     def point[A](a: => A): ReaderWriter[F, L, A] = ReaderFacade(Writer.zero(a))
 
     def bind[A, B](fa: ReaderWriter[F, L, A])(f: (A) => ReaderWriter[F, L, B]): ReaderWriter[F, L, B] =
@@ -364,7 +383,11 @@ trait ReaderMonads extends ValidMonads with FutureMonads with WriterMonads{
       }
   }
 
-  implicit def readerValidWriterMonad[F, E, L](implicit monoid:Monoid[L]) = new FMonad[E, ({type IVW[+T] = ReaderValidWriter[F, E, L, T]})#IVW] {
+  implicit def readerValidWriterMonad[F, E, L](implicit monoid:Monoid[L]) = new FWMonad[E, L, ({type IVW[+T] = ReaderValidWriter[F, E, L, T]})#IVW] {
+
+    def write[T](log: L, value: T): ReaderValidWriter[F, E, L, T] =
+      ReaderFacade(Success(Writer(log, value)))
+
     def failure(validationFailure: => E): ReaderValidWriter[F, E, L, Nothing] =
       ReaderFacade(Failure(NonEmptyList(validationFailure)))
 

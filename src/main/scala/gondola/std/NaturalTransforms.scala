@@ -2,6 +2,8 @@ package gondola.std
 
 import scala.concurrent.ExecutionContext
 import gondola._
+import scala.language.higherKinds
+import scala.language.reflectiveCalls
 
 import scalaz.{Success, Monoid}
 
@@ -227,10 +229,28 @@ trait IOTransforms {
   implicit def IOValid[E] = new (IO ~> ({type V[+T] = Valid[E, T]})#V) {
     def apply[A](fa: IO[A]): Valid[E, A] = Success(fa.run())
   }
+  implicit def IOWriterWriter[L] = new (({type IW[+T] = IOWriter[L, T]})#IW ~> ({type W[+T] = Writer[L, T]})#W) {
+    def apply[A](fa: IOWriter[L, A]): Writer[L, A] = fa.run()
+  }
 
   implicit def IOIOValid[E] = new (({type R[+T] = IO[T]})#R ~> ({type IV[+T] = IOValid[E,T]})#IV) {
     def apply[T](value: IO[T]) =
       value.map(scalaz.Success(_))
+  }
+
+  implicit def IOValidWriterValidWriter[E,L](implicit m:Monoid[L]) = new (({type IVW[+T] = IO[Valid[E, Writer[L,T]]]})#IVW ~> ({type VW[+T] = Valid[E, Writer[L,T]]})#VW) {
+    def apply[A](fa: IO[Valid[E, Writer[L, A]]]): Valid[E, Writer[L, A]] =
+      fa.run()
+  }
+
+  implicit def IOIOValidWriter[E,L](implicit m:Monoid[L]) = new (IO ~> ({type IVW[+T] = IO[Valid[E, Writer[L,T]]]})#IVW) {
+    def apply[A](fa: IO[A]): IO[Valid[E, Writer[L, A]]] =
+      fa.map(v => Success(Writer.zero(v)))
+  }
+
+  implicit def IOValidIOValidWriter[E,L](implicit m:Monoid[L]) = new (({type IV[+T] = IO[Valid[E, T]]})#IV ~> ({type IVW[+T] = IO[Valid[E, Writer[L,T]]]})#IVW) {
+    def apply[A](fa: IO[Valid[E, A]]): IO[Valid[E, Writer[L, A]]] =
+      fa.map(_.map(s => Writer.zero(s)))
   }
 
   implicit def IOReader[F] = new (IO ~> ({type R[+T] = Reader[F, T]})#R) {

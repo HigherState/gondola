@@ -9,9 +9,6 @@ package object gondola {
 
   type EitherActor = Either[ActorRef, ActorSelection]
   type Monad[F[_]] = scalaz.Monad[F]
-  type Ack = Acknowledged
-
-  type FWMonad[E, L, M[+_]] = FMonad[E, M] with WMonad[L, M]
 
   implicit class AnyExt[T](val self:T) extends AnyVal {
     def |>[U](func:T => U) = func(self)
@@ -21,7 +18,7 @@ package object gondola {
     def |>[C](func:(A, B) => C) = func(a._1, a._2)
   }
 
-  def acknowledged[M[+_]](implicit m:Monad[M]):M[Acknowledged] =
+  def acknowledged[M[+_]](implicit m:Monad[M]):M[Ack] =
     m.point(Acknowledged)
 
   implicit class MExt[M[+_], T](val self:M[T]) extends AnyVal {
