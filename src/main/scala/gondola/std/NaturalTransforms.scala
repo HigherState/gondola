@@ -171,6 +171,13 @@ trait FutureTransforms {
       def apply[T](value: FutureValid[E, T]) =
         ReaderFacade(value)
     }
+
+  implicit def FutureValidFutureValidWriter[E, L](implicit ec:ExecutionContext, m:Monoid[L]) =
+    new (({type V[+T] = FutureValid[E,T]})#V ~> ({type FVW[+T] = FutureValidWriter[E, L, T]})#FVW) {
+
+      def apply[T](value: FutureValid[E, T]) =
+        value.map(_.map(Writer.zero(_)))
+    }
 }
 
 trait ReaderTransforms {
@@ -260,6 +267,18 @@ trait IOTransforms {
   implicit def IOReaderValid[F, E] = new (IO ~> ({type R[+T] = ReaderValid[F, E, T]})#R) {
     def apply[T](value: IO[T]) =
       Reader(t => scalaz.Success(value.run()))
+  }
+  implicit def IOReaderValidWriter[F, E, L](implicit m:Monoid[L]) = new (IO ~> ({type R[+T] = ReaderValidWriter[F, E, L, T]})#R) {
+    def apply[T](value: IO[T]):ReaderValidWriter[F, E, L, T] =
+      Reader(t => scalaz.Success(Writer.zero(value.run())))
+  }
+  implicit def IOValidReaderValid[F, E] = new (({type IV[+T] = IOValid[E,T]})#IV ~> ({type R[+T] = ReaderValid[F, E, T]})#R) {
+    def apply[A](fa: IOValid[E, A]): ReaderValid[F, E, A] =
+      Reader(t => fa.run())
+  }
+  implicit def IOValidReaderValidWriter[F, E, L](implicit m:Monoid[L]) = new (({type IV[+T] = IOValid[E,T]})#IV ~> ({type R[+T] = ReaderValidWriter[F, E, L, T]})#R) {
+    def apply[A](fa: IOValid[E, A]): ReaderValidWriter[F, E, L, A] =
+      Reader(t => fa.run().map(Writer.zero(_)))
   }
 }
 

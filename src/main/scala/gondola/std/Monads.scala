@@ -167,6 +167,41 @@ trait FutureMonads extends ValidMonads with DisrupterMonads {
         }
     }
 
+  implicit def futureValidMonadWriter[E, L](implicit monad:Monad[Future], monoid:Monoid[L]):FWMonad[E, L, ({type V[+T] = FutureValidWriter[E,L,T]})#V] =
+    new FWMonad[E, L, ({type V[+T] = FutureValidWriter[E,L,T]})#V] {
+      def write[T](log: L, value: T): FutureValidWriter[E, L, T] =
+        monad.point(Success(Writer(log, value)))
+
+      def failure(validationFailure: => E): FutureValidWriter[E, L, Nothing] =
+        monad.point(validMonad.failure(validationFailure))
+
+      def failures(validationFailures: => NonEmptyList[E]): FutureValidWriter[E, L, Nothing] =
+        monad.point(validMonad.failures(validationFailures))
+
+      def onFailure[T, S >: T](value: FutureValidWriter[E, L, T])(f: (NonEmptyList[E]) => FutureValidWriter[E, L, S]): FutureValidWriter[E, L, S] =
+        monad.bind(value) {
+          case Failure(vf) =>
+            f(vf)
+          case _ => value
+        }
+
+      def point[A](a: => A): FutureValidWriter[E, L, A] =
+        monad.point(validMonad.point(writerMonad.point(a)))
+
+      def bind[A, B](fa: FutureValidWriter[E, L, A])(f: (A) => FutureValidWriter[E, L, B]): FutureValidWriter[E, L, B] =
+        monad.bind(fa) {
+          case Failure(vf) =>
+            monad.point(validMonad.failures(vf))
+          case Success(w@Writer(_, s)) =>
+            monad.map(f(s)){
+              case Failure(vf) =>
+                validMonad.failures(vf)
+              case Success(r) =>
+                validMonad.point(w.flatMap(_ => r))
+            }
+        }
+    }
+
   implicit def futureDisruptMonad[E](implicit monad:Monad[Future]):FMonad[E, ({type V[+T] = FutureEitherValid[E,T]})#V] =
     new FMonad[E, ({type V[+T] = FutureEitherValid[E,T]})#V] {
       def bind[A, B](fa: FutureEitherValid[E, A])(f: (A) => FutureEitherValid[E, B]): FutureEitherValid[E, B] =
