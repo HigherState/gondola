@@ -10,7 +10,7 @@ libraryDependencies ++= Seq(
   "org.scala-lang" % "scala-compiler" % "2.11.7",
   "org.scalaz" %% "scalaz-core" % "7.1.2",
   "org.scalaz" %% "scalaz-concurrent" % "7.1.0",
-  "com.typesafe.akka" %% "akka-actor" % "2.3.9",
+  "com.typesafe.akka" %% "akka-actor" % "2.3.12",
   "com.chuusai" %% "shapeless" % "2.2.2",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test"
 )
