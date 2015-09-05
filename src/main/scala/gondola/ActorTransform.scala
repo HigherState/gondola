@@ -116,6 +116,53 @@ object ActorN {
   }
 }
 
+
+object ActorListener {
+
+  def apply[E <: Event](listener: => EventListener[E])(implicit af:ActorRefFactory):ActorRef =
+    af.actorOf(props(listener))
+
+  def apply[E <: Event](listener: => EventListener[E], name:String)(implicit af:ActorRefFactory):ActorRef =
+    af.actorOf(props(listener), name)
+
+  private def props[E <: Event](listener: => EventListener[E]) = {
+    val f = () => listener
+    Props {
+      new Actor {
+        private val lifted = f().handle.lift
+
+        def receive = {
+          case e: E@unchecked =>
+            lifted(e)
+        }
+      }
+    }
+  }
+}
+
+object ActorListenerN {
+
+  def apply[M[_], N[_], E <: Event](listener: => EventListenerN[M, E])(implicit af: ActorRefFactory, transform: M ~> N): ActorRef =
+    af.actorOf(props(listener, transform))
+
+  def apply[M[_], N[_], E <: Event](listener: => EventListenerN[M, E], name: String)(implicit af: ActorRefFactory, transform: M ~> N): ActorRef =
+    af.actorOf(props(listener, transform), name)
+
+  private def props[M[_], N[_], E <: Event](listener: => EventListenerN[M, E], transform: M ~> N) = {
+    val f = () => listener
+    Props {
+      new Actor {
+        private val lifted = f().handle.lift
+
+        def receive = {
+          case e: E@unchecked =>
+            lifted(e).map(transform(_))
+        }
+      }
+    }
+  }
+}
+
 //TODO: FIX THIS!!
 object Couple {
   def apply[D[_], C[_] <: D[_], Q[_] <: D[_], R[_]](cTransform:C ~> R, qTransform:Q ~> R): (D ~> R) =
