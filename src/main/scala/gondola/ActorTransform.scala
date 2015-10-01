@@ -142,13 +142,13 @@ object ActorListener {
 
 object ActorListenerN {
 
-  def apply[M[_], N[_], E <: Event](listener: => EventListenerN[M, E])(implicit af: ActorRefFactory, transform: M ~> N): ActorRef =
+  def apply[M[+_], N[_], E <: Event](listener: => EventListenerN[M, E])(implicit af: ActorRefFactory, transform: M ~> N): ActorRef =
     af.actorOf(props(listener, transform))
 
-  def apply[M[_], N[_], E <: Event](listener: => EventListenerN[M, E], name: String)(implicit af: ActorRefFactory, transform: M ~> N): ActorRef =
+  def apply[M[+_], N[_], E <: Event](listener: => EventListenerN[M, E], name: String)(implicit af: ActorRefFactory, transform: M ~> N): ActorRef =
     af.actorOf(props(listener, transform), name)
 
-  private def props[M[_], N[_], E <: Event](listener: => EventListenerN[M, E], transform: M ~> N) = {
+  private def props[M[+_], N[_], E <: Event](listener: => EventListenerN[M, E], transform: M ~> N) = {
     val f = () => listener
     Props {
       new Actor {
