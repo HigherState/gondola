@@ -2,7 +2,7 @@ package gondola.authentication
 
 import org.scalatest.{BeforeAndAfter, Matchers, FunSuite}
 import org.scalatest.concurrent.ScalaFutures
-import akka.actor.ActorSystem
+import akka.actor.{PoisonPill, Actor, Props, ActorSystem}
 import gondola._
 import akka.util.Timeout
 import repository._
@@ -57,7 +57,6 @@ class InstanceTests extends FunSuite with Matchers with ScalaFutures with Before
       }
     }
   }
-
 
 //  test("CQRS actor authentication service using the simple hashmap repository") {
 //    //simple repository service

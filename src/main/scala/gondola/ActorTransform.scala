@@ -12,10 +12,11 @@ private class ActorTransform[-D[_], R[+_]](transform: => D ~> R, name:Option[Str
 
   def props =
     Props {
+      val t = transform
       new Actor {
         def receive = {
           case d: D[_]@unchecked =>
-            sender ! transform(d)
+            sender ! t(d)
         }
       }
     }
@@ -31,12 +32,13 @@ private class FutureActorTransform[-D[_], R[+_]](transform: => D ~> ({type I[+T]
 
   def props =
     Props {
+      val t = transform
       new Actor {
         import context.dispatcher
 
         def receive = {
           case d: D[_]@unchecked =>
-            new PipeableFuture(transform(d)) pipeTo sender
+            new PipeableFuture(t(d)) pipeTo sender
         }
       }
     }
@@ -51,12 +53,15 @@ private class ReaderActorTransform[-D[_], R[+_], S](transform: => D ~> ({type I[
   import akka.pattern._
 
   def props =
-    Props{ new Actor {
-      def receive = {
-        case (d:D[_]@unchecked, s:S@unchecked) =>
-          sender ! transform(d).apply(s)
+    Props{
+      val t = transform
+      new Actor {
+        def receive = {
+          case (d:D[_]@unchecked, s:S@unchecked) =>
+            sender ! t(d).apply(s)
+        }
       }
-    }}
+    }
 
   val actorRef = name.fold(af.actorOf(props)){n => af.actorOf(props, n)}
 
