@@ -431,8 +431,8 @@ trait ReaderMonads extends ValidMonads with FutureMonads with WriterMonads{
 
     def onFailure[T, S >: T](value: ReaderValidWriter[F, E, L, T])(f: (NonEmptyList[E]) => ReaderValidWriter[F, E, L, S]): ReaderValidWriter[F, E, L, S] =
       value.flatMap{
-        case Success(_) =>
-          value
+        case Success(w) =>
+          ReaderFacade(Success(w))  // returning value here causes loss of information, not sure why
         case Failure(vf) =>
           f(vf)
       }
