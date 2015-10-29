@@ -115,9 +115,14 @@ trait ValidTransforms {
     def apply[T](value: Valid[E, T]) = ReaderFacade(value)
   }
 
-  implicit def ValidIOValid[F,E] = new (({type V[+T] = Valid[E,T]})#V ~> ({type RV[+T] = IOValid[E,T]})#RV) {
+  implicit def ValidIOValid[E] = new (({type V[+T] = Valid[E,T]})#V ~> ({type RV[+T] = IOValid[E,T]})#RV) {
 
     def apply[T](value: Valid[E, T]) = IO(value)
+  }
+
+  implicit def ValidValidWriter[E,L:Monoid] = new (({type V[+T] = Valid[E,T]})#V ~> ({type VW[+T] = ValidWriter[E,L,T]})#VW) {
+
+    def apply[T](value: Valid[E, T]) = value.map(Writer.zero(_))
   }
 
   implicit def ValidReaderFutureValid[F,E] = new (({type V[+T] = Valid[E,T]})#V ~> ({type RV[+T] = ReaderFutureValid[F, E,T]})#RV) {
