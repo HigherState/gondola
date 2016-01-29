@@ -10,9 +10,11 @@ private class ActorTransform[-D[_], R[+_]](transform: => D ~> R, name:Option[Str
 
   import akka.pattern._
 
+  private val f = () => transform
+
   def props =
     Props {
-      val t = transform
+      val t = f()
       new Actor {
         def receive = {
           case d: D[_]@unchecked =>
@@ -30,9 +32,11 @@ private class FutureActorTransform[-D[_], R[+_]](transform: => D ~> ({type I[+T]
   extends ~>[D, ({type I[+T] = Future[R[T]]})#I] {
   import akka.pattern._
 
+  private val f = () => transform
+
   def props =
     Props {
-      val t = transform
+      val t = f()
       new Actor {
         import context.dispatcher
 
@@ -52,9 +56,11 @@ private class ReaderActorTransform[-D[_], R[+_], S](transform: => D ~> ({type I[
   extends ~>[D, ({type I[+T] = Reader[S, Future[R[T]]]})#I] {
   import akka.pattern._
 
+  private val f = () => transform
+
   def props =
     Props{
-      val t = transform
+      val t = f()
       new Actor {
         def receive = {
           case (d:D[_]@unchecked, s:S@unchecked) =>
@@ -166,6 +172,28 @@ object ActorListenerN {
       }
     }
   }
+
+  def passthrough[M[+_], E <: Event](listener: => EventListenerN[M, E])(implicit af: ActorRefFactory): ActorRef =
+    af.actorOf(passthroughProps(listener))
+
+  def passthrough[M[+_], E <: Event](listener: => EventListenerN[M, E], name: String)(implicit af: ActorRefFactory): ActorRef =
+    af.actorOf(passthroughProps(listener), name)
+
+  def passthroughProps[M[+_], E <: Event](listener: => EventListenerN[M, E]) = {
+    val f = () => listener
+    Props {
+      new Actor {
+        private val lifted = f().handle.lift
+
+        def receive = {
+          case e: E@unchecked =>
+            val result = lifted(e)
+            sender ! result
+        }
+      }
+    }
+  }
+
 }
 
 //TODO: FIX THIS!!
