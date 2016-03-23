@@ -42,7 +42,8 @@ private class FutureActorTransform[-D[_], R[+_]](transform: => D ~> ({type I[+T]
 
         def receive = {
           case d: D[_]@unchecked =>
-            new PipeableFuture(t(d)) pipeTo sender
+            new PipeableFuture(t(d)).pipeTo(sender)
+            ()
         }
       }
     }
@@ -145,6 +146,7 @@ object ActorListener {
         def receive = {
           case e: E@unchecked =>
             lifted(e)
+            ()
         }
       }
     }
@@ -167,7 +169,8 @@ object ActorListenerN {
 
         def receive = {
           case e: E@unchecked =>
-            lifted(e).map(transform(_))
+            lifted(e).map(transform.apply)
+            ()
         }
       }
     }
@@ -187,8 +190,15 @@ object ActorListenerN {
 
         def receive = {
           case e: E@unchecked =>
-            val result = lifted(e)
-            sender ! result
+            try {
+              val result = lifted(e)
+              sender ! result
+            } catch {
+              case ex:Throwable =>
+                //return to parent and throw to activate supervisor
+                sender ! akka.actor.Status.Failure(ex)
+                throw ex
+            }
         }
       }
     }

@@ -16,7 +16,6 @@ object IdMonad {
 
 object ValidMonads extends ValidMonads
 
-object DisrupterMonads extends DisrupterMonads
 
 object FutureMonads extends FutureMonads
 
@@ -43,17 +42,17 @@ trait ValidMonads extends WriterMonads {
       fa.flatMap(f)
 
     def point[A](a: => A): Valid[E, A] =
-      Success(a)
+      \/-(a)
 
     def failures(validationFailures: => NonEmptyList[E]): Valid[E, Nothing] =
-      Failure(validationFailures)
+      -\/(validationFailures)
 
     def failure(validationFailure: => E): Valid[E, Nothing] =
-      Failure(NonEmptyList(validationFailure))
+      -\/(NonEmptyList(validationFailure))
 
     def onFailure[T, S >: T](value: Valid[E, T])(f: (NonEmptyList[E]) => Valid[E, S]):Valid[E, S] =
       value match {
-        case Failure(n) => f(n)
+        case -\/(n) => f(n)
         case e => e
       }
   }
@@ -61,7 +60,7 @@ trait ValidMonads extends WriterMonads {
   implicit def validWriterMonad[E, F:Monoid] = new FWMonad[E, F, ({type R[+T] = ValidWriter[E, F, T]})#R] {
 
     def write[T](log:F, value:T): ValidWriter[E, F, T] =
-      Success(Writer(log, value))
+      \/-(Writer(log, value))
 
     def failure(validationFailure: => E): ValidWriter[E, F, Nothing] =
       validMonad.failure(validationFailure)
@@ -71,9 +70,9 @@ trait ValidMonads extends WriterMonads {
 
     def onFailure[T, S >: T](value: ValidWriter[E, F, T])(f: (NonEmptyList[E]) => ValidWriter[E, F, S]): ValidWriter[E, F, S] =
       value match {
-        case Success(_) =>
+        case \/-(_) =>
           value
-        case Failure(vf) =>
+        case -\/(vf) =>
           f(vf)
       }
 
@@ -89,27 +88,6 @@ trait ValidMonads extends WriterMonads {
   }
 }
 
-trait DisrupterMonads {
-  implicit def disruptMonad[E] = new FMonad[E, ({type V[+T] = EitherValid[E,T]})#V] {
-    def bind[A, B](fa: EitherValid[E, A])(f: (A) => EitherValid[E, B]): EitherValid[E, B] =
-      fa.flatMap(f)
-    def point[A](a: => A): EitherValid[E, A] =
-      \/-(a)
-
-    def failure(validationFailure: => E): EitherValid[E, Nothing] =
-      -\/(NonEmptyList(validationFailure))
-
-    def failures(validationFailures: => NonEmptyList[E]): EitherValid[E, Nothing] =
-      -\/(validationFailures)
-
-    def onFailure[T, S >: T](value: EitherValid[E, T])(f: (NonEmptyList[E]) => EitherValid[E, S]):EitherValid[E, S] =
-      value match {
-        case -\/(n) => f(n)
-        case e => e
-      }
-  }
-}
-
 case class FutureLift[T](t: T) extends Future[T] {
 
   override def isCompleted: Boolean = true
@@ -118,8 +96,9 @@ case class FutureLift[T](t: T) extends Future[T] {
 
   def tryComplete(value: Try[T]): Boolean = false
 
-  def onComplete[U](func: Try[T] => U)(implicit executor: ExecutionContext) {
+  def onComplete[U](func: Try[T] => U)(implicit executor: ExecutionContext):Unit = {
     func(util.Success(t))
+    ()
   }
 
   override def map[S](f: (T) => S)(implicit executor: ExecutionContext): Future[S] =
@@ -133,7 +112,7 @@ case class FutureLift[T](t: T) extends Future[T] {
   def result(atMost: Duration)(implicit permit: CanAwait): T = t
 }
 
-trait FutureMonads extends ValidMonads with DisrupterMonads {
+trait FutureMonads extends ValidMonads {
   implicit def futureMonad(implicit ec:ExecutionContext):Monad[scala.concurrent.Future] =
     new Monad[Future] {
       def point[A](a: => A): Future[A] = FutureLift(a)
@@ -145,9 +124,9 @@ trait FutureMonads extends ValidMonads with DisrupterMonads {
     new FMonad[E, ({type V[+T] = FutureValid[E,T]})#V] {
       def bind[A, B](fa: FutureValid[E, A])(f: (A) => FutureValid[E, B]): FutureValid[E, B] =
         monad.bind(fa) {
-          case Failure(vf) =>
+          case -\/(vf) =>
             monad.point(validMonad.failures(vf))
-          case Success(s) => f(s)
+          case \/-(s) => f(s)
         }
 
       def point[A](a: => A): FutureValid[E, A] =
@@ -161,7 +140,7 @@ trait FutureMonads extends ValidMonads with DisrupterMonads {
 
       def onFailure[T, S >: T](value: FutureValid[E, T])(f: (NonEmptyList[E]) => FutureValid[E, S]):FutureValid[E, S] =
         monad.bind(value) {
-          case Failure(vf) =>
+          case -\/(vf) =>
             f(vf)
           case _ => value
         }
@@ -170,7 +149,7 @@ trait FutureMonads extends ValidMonads with DisrupterMonads {
   implicit def futureValidMonadWriter[E, L](implicit monad:Monad[Future], monoid:Monoid[L]):FWMonad[E, L, ({type V[+T] = FutureValidWriter[E,L,T]})#V] =
     new FWMonad[E, L, ({type V[+T] = FutureValidWriter[E,L,T]})#V] {
       def write[T](log: L, value: T): FutureValidWriter[E, L, T] =
-        monad.point(Success(Writer(log, value)))
+        monad.point(\/-(Writer(log, value)))
 
       def failure(validationFailure: => E): FutureValidWriter[E, L, Nothing] =
         monad.point(validMonad.failure(validationFailure))
@@ -180,7 +159,7 @@ trait FutureMonads extends ValidMonads with DisrupterMonads {
 
       def onFailure[T, S >: T](value: FutureValidWriter[E, L, T])(f: (NonEmptyList[E]) => FutureValidWriter[E, L, S]): FutureValidWriter[E, L, S] =
         monad.bind(value) {
-          case Failure(vf) =>
+          case -\/(vf) =>
             f(vf)
           case _ => value
         }
@@ -190,41 +169,15 @@ trait FutureMonads extends ValidMonads with DisrupterMonads {
 
       def bind[A, B](fa: FutureValidWriter[E, L, A])(f: (A) => FutureValidWriter[E, L, B]): FutureValidWriter[E, L, B] =
         monad.bind(fa) {
-          case Failure(vf) =>
+          case -\/(vf) =>
             monad.point(validMonad.failures(vf))
-          case Success(w@Writer(_, s)) =>
+          case \/-(w@Writer(_, s)) =>
             monad.map(f(s)){
-              case Failure(vf) =>
+              case -\/(vf) =>
                 validMonad.failures(vf)
-              case Success(r) =>
+              case \/-(r) =>
                 validMonad.point(w.flatMap(_ => r))
             }
-        }
-    }
-
-  implicit def futureDisruptMonad[E](implicit monad:Monad[Future]):FMonad[E, ({type V[+T] = FutureEitherValid[E,T]})#V] =
-    new FMonad[E, ({type V[+T] = FutureEitherValid[E,T]})#V] {
-      def bind[A, B](fa: FutureEitherValid[E, A])(f: (A) => FutureEitherValid[E, B]): FutureEitherValid[E, B] =
-        monad.bind(fa) {
-          case -\/(vf) =>
-            monad.point(disruptMonad.failures(vf))
-          case \/-(s) => f(s)
-        }
-
-      def point[A](a: => A): FutureEitherValid[E, A] =
-        monad.point(disruptMonad.point(a))
-
-      def failure(validationFailure: => E): FutureEitherValid[E, Nothing] =
-        monad.point(disruptMonad.failure(validationFailure))
-
-      def failures(validationFailures: => NonEmptyList[E]):FutureEitherValid[E, Nothing] =
-        monad.point(disruptMonad.failures(validationFailures))
-
-      def onFailure[T, S >: T](value: FutureEitherValid[E, T])(f: (NonEmptyList[E]) => FutureEitherValid[E, S]):FutureEitherValid[E, S] =
-        monad.bind(value) {
-          case -\/(vf) =>
-            f(vf)
-          case e => monad.point(e)
         }
     }
 }
@@ -243,18 +196,18 @@ trait IOMonads extends ValidMonads with WriterMonads {
   implicit def ioValidMonad[E] = new FMonad[E, ({type RV[+T] = IOValid[E,T]})#RV] {
     def bind[A, B](fa: IOValid[E,A])(f: (A) => IOValid[E,B]):IOValid[E, B] =
       fa.flatMap{
-        case Failure(vf) =>
+        case -\/(vf) =>
           ioMonad.point(validMonad.failures(vf))
-        case Success(s) =>
+        case \/-(s) =>
           f(s)
       }
 
     def point[A](a: => A) =
-      ioMonad.point(Success(a))
+      ioMonad.point(\/-(a))
 
     def onFailure[T, S >: T](value: IOValid[E,T])(f: (NonEmptyList[E]) => IOValid[E,S]) =
       value.flatMap{
-        case Failure(vf) =>
+        case -\/(vf) =>
           f(vf)
         case _ => value
       }
@@ -284,30 +237,30 @@ trait IOMonads extends ValidMonads with WriterMonads {
   implicit def ioValidWriterMonad[E, L](implicit monoid:Monoid[L]) = new FWMonad[E, L, ({type IWV[+T] = IOValidWriter[E, L, T]})#IWV] {
 
     def write[T](log: L, value: T): IOValidWriter[E, L, T] =
-      IO(Success(Writer(log, value)))
+      IO(\/-(Writer(log, value)))
 
     def point[A](a: => A): IOValidWriter[E, L, A] =
-      IO(Success(Writer.zero(a)))
+      IO(\/-(Writer.zero(a)))
 
     def failure(validationFailure: => E): IOValidWriter[E, L, Nothing] =
-      IO(Failure(NonEmptyList(validationFailure)))
+      IO(-\/(NonEmptyList(validationFailure)))
 
     def failures(validationFailures: => NonEmptyList[E]): IOValidWriter[E, L, Nothing] =
-      IO(Failure(validationFailures))
+      IO(-\/(validationFailures))
 
     def onFailure[T, S >: T](value: IOValidWriter[E, L, T])(f: (NonEmptyList[E]) => IOValidWriter[E, L, S]): IOValidWriter[E, L, S] =
       value.flatMap{
-        case Failure(vf) =>
+        case -\/(vf) =>
           f(vf)
-        case Success(_) =>
+        case \/-(_) =>
           value
       }
 
     def bind[A, B](fa: IOValidWriter[E, L, A])(f: (A) => IOValidWriter[E, L, B]): IOValidWriter[E, L, B] =
       fa.flatMap{
-        case Failure(_) =>
+        case -\/(_) =>
           fa.asInstanceOf[IOValidWriter[E, L, B]]
-        case Success(Writer(l, v)) =>
+        case \/-(Writer(l, v)) =>
           f(v).map(_.map(w => Writer(monoid.append(l, w.log), w.value)))
       }
   }
@@ -327,18 +280,18 @@ trait ReaderMonads extends ValidMonads with FutureMonads with WriterMonads{
 
     def bind[A,B](fa:ReaderValid[F,E,A])(f: (A) => ReaderValid[F,E,B]):ReaderValid[F,E,B] =
       fa.flatMap{
-        case Failure(vf) =>
+        case -\/(vf) =>
           readerMonad.point(validMonad.failures(vf))
-        case Success(s) =>
+        case \/-(s) =>
           f(s)
       }
 
     def point[A](a: => A)=
-      readerMonad.point(Success(a))
+      readerMonad.point(\/-(a))
 
     def onFailure[T, S >: T](value: ReaderValid[F, E, T])(f: (NonEmptyList[E]) => ReaderValid[F, E, S]) =
       value.flatMap{
-        case Failure(vf) =>
+        case -\/(vf) =>
           f(vf)
         case _ => value
       }
@@ -372,24 +325,24 @@ trait ReaderMonads extends ValidMonads with FutureMonads with WriterMonads{
         fa.flatMap{ft =>
           Reader{t =>
             monad.bind(ft){
-              case Failure(vf) =>
+              case -\/(vf) =>
                 monad.point(validMonad.failures(vf))
-              case Success(s) =>
+              case \/-(s) =>
                 f(s).apply(t)
             }
           }
         }
 
       def point[A](a: => A) =
-        readerMonad.point(monad.point(Success(a)))
+        readerMonad.point(monad.point(\/-(a)))
 
       def onFailure[T, S >: T](value:ReaderFutureValid[F,E,T])(f: (NonEmptyList[E]) => ReaderFutureValid[F,E,S]) =
         value.flatMap{ ft =>
           Reader{t =>
             monad.bind(ft) {
-              case Failure(vf) =>
+              case -\/(vf) =>
                 f(vf)(t)
-              case Success(s) =>
+              case \/-(s) =>
                 ft
             }
           }
@@ -421,31 +374,31 @@ trait ReaderMonads extends ValidMonads with FutureMonads with WriterMonads{
   implicit def readerValidWriterMonad[F, E, L](implicit monoid:Monoid[L]) = new FWMonad[E, L, ({type IVW[+T] = ReaderValidWriter[F, E, L, T]})#IVW] {
 
     def write[T](log: L, value: T): ReaderValidWriter[F, E, L, T] =
-      ReaderFacade(Success(Writer(log, value)))
+      ReaderFacade(\/-(Writer(log, value)))
 
     def failure(validationFailure: => E): ReaderValidWriter[F, E, L, Nothing] =
-      ReaderFacade(Failure(NonEmptyList(validationFailure)))
+      ReaderFacade(-\/(NonEmptyList(validationFailure)))
 
     def failures(validationFailures: => NonEmptyList[E]): ReaderValidWriter[F, E, L, Nothing] =
-      ReaderFacade(Failure(validationFailures))
+      ReaderFacade(-\/(validationFailures))
 
     def onFailure[T, S >: T](value: ReaderValidWriter[F, E, L, T])(f: (NonEmptyList[E]) => ReaderValidWriter[F, E, L, S]): ReaderValidWriter[F, E, L, S] =
       value.flatMap{
-        case Success(w) =>
-          ReaderFacade(Success(w))  // returning value here causes loss of information, not sure why
-        case Failure(vf) =>
+        case \/-(w) =>
+          ReaderFacade(\/-(w))  // returning value here causes loss of information, not sure why
+        case -\/(vf) =>
           f(vf)
       }
 
     def point[A](a: => A): ReaderValidWriter[F, E, L, A] =
-      ReaderFacade(Success(Writer.zero(a)))
+      ReaderFacade(\/-(Writer.zero(a)))
 
     def bind[A, B](fa: ReaderValidWriter[F, E, L, A])(f: (A) => ReaderValidWriter[F, E, L, B]): ReaderValidWriter[F, E, L, B] =
       fa.flatMap{
-        case Success(Writer(l,v)) =>
+        case \/-(Writer(l,v)) =>
           f(v).map(_.map(w => Writer(monoid.append(l, w.log), w.value)))
-        case Failure(vf) =>
-          ReaderFacade(Failure(vf))
+        case -\/(vf) =>
+          ReaderFacade(-\/(vf))
       }
   }
 }

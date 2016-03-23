@@ -14,27 +14,27 @@ import akka.util.Timeout
 object RepositoryTests {
   import Transforms._
 
-  def main(args:Array[String]) {
-
-    implicit val system = ActorSystem("System")
-    implicit val exectionContext:ExecutionContext = system.dispatcher
-    implicit val globalTimeout:Timeout = 5.minutes
-
-
-    val atomicHashMap = new AtomicReference[Map[String, String]](Map.empty[String, String])
-
-    val c = InMemoryKeyValueCommandHandler[Id, String, String](atomicHashMap)
-    val q = InMemoryKeyValueQueryExecutor[Id, String, String](atomicHashMap)
-    val cA = ActorN[(KvC[String, String])#I, Id](c)
-    val qA = new ActorTransform[(KvQ[String, String])#I, Id](q, None)
-
-    val cqT = Couple[(KvD[String, String])#I, (KvC[String, String])#I, (KvQ[String,String])#I, Future](cA, qA)
-
-    for {
-      _ <- cqT(Add("one" -> "two"))
-      v <- cqT(Get("one"))
-    } yield println(v)
-  }
+//  def main(args:Array[String]):Unit = {
+//
+//    implicit val system = ActorSystem("System")
+//    implicit val exectionContext:ExecutionContext = system.dispatcher
+//    implicit val globalTimeout:Timeout = 5.minutes
+//
+//
+//    val atomicHashMap = new AtomicReference[Map[String, String]](Map.empty[String, String])
+//
+//    val c = InMemoryKeyValueCommandHandler[Id, String, String](atomicHashMap)
+//    val q = InMemoryKeyValueQueryExecutor[Id, String, String](atomicHashMap)
+//    val cA = ActorN[(KvC[String, String])#I, Id](c)
+//    val qA = new ActorTransform[(KvQ[String, String])#I, Id](q, None)
+//
+//    val cqT = Couple[(KvD[String, String])#I, (KvC[String, String])#I, (KvQ[String,String])#I, Future](cA, qA)
+//
+//    for {
+//      _ <- c(Add("one" -> "two"))
+//      v <- q(Get("one"))
+//    } yield println(v)
+//  }
 }
 
 
