@@ -1,7 +1,5 @@
 package gondola
 
-import scala.language.higherKinds
-
 trait Event
 
 trait EventListener[E <: Event] {

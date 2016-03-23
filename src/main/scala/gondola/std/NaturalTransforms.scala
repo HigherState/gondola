@@ -2,9 +2,6 @@ package gondola.std
 
 import scala.concurrent.ExecutionContext
 import gondola._
-import scala.language.higherKinds
-import scala.language.reflectiveCalls
-
 import scalaz.{Success, Monoid}
 
 trait IdentityTransforms extends ReaderMonads with IOMonads {

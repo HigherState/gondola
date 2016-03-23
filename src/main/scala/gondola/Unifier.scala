@@ -1,7 +1,6 @@
 package gondola
 
 import shapeless._
-import scala.language.higherKinds
 
 /**
  * Created by jamie.pullar on 28/07/2015.

@@ -1,7 +1,5 @@
 package gondola
 
-import scala.language.higherKinds
-
 object CommandHandlerSplitter {
 
   def apply[M[+_]:Monad, C[_]](primary:C ~> M, handlers:C ~> M*):C ~> M =

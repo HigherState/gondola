@@ -2,7 +2,6 @@ package gondola
 
 import scalaz._
 import scalaz.syntax.ToMonadOps
-import scala.language.higherKinds
 
 trait OptionOps {
   implicit class OptionExt[T](value:Option[T]) {

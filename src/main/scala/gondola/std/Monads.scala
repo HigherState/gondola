@@ -8,7 +8,6 @@ import gondola.Monad
 import scala.util.Try
 import scala.concurrent.duration.Duration
 import scalaz._
-import scala.language.reflectiveCalls
 
 object IdMonad {
   implicit val idMonad = scalaz.Id.id
