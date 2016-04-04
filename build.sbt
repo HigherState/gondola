@@ -5,7 +5,7 @@ organization := "org.higherState"
 version := "1.0.1"
 
 scalaVersion := "2.11.8"
-#
+
 scalacOptions ++= Seq(
   "-deprecation",
   "-encoding", "UTF-8",
@@ -29,8 +29,9 @@ initialize := {
 
 libraryDependencies ++= Seq(
   "org.scala-lang" % "scala-compiler" % "2.11.8",
-  "org.scalaz" %% "scalaz-core" % "7.2.1",
-  "org.scalaz" %% "scalaz-concurrent" % "7.2.1",
+  "org.scala-lang.modules" %% "scala-xml" % "1.0.5",
+  "org.scalaz" %% "scalaz-core" % "7.1.7",
+  "org.scalaz" %% "scalaz-concurrent" % "7.1.7",
   "com.typesafe.akka" %% "akka-actor" % "2.4.2",
   "com.chuusai" %% "shapeless" % "2.3.0",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test"
