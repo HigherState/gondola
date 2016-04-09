@@ -17,23 +17,23 @@ object ValidMonads extends ValidMonads
 
 object FutureMonads extends FutureMonads
 
-trait WriterMonads {
+//trait WriterMonads[F] {
+//
+//  implicit def writerMonad[F:Monoid] = new WMonad[F, ({type R[T] = Writer[F, T]})#R] {
+//
+//    def write[T](log: F, value: T): Writer[F, T] =
+//      Writer(log, value)
+//
+//    def pure[A](a: A): Writer[F, A] =
+//      Writer.zero(a)
+//
+//    def flatMap[A, B](fa: Writer[F, A])(f: (A) => Writer[F, B]): Writer[F, B] =
+//      fa.flatMap(f)
+//  }
+//
+//}
 
-  implicit def writerMonad[F:Monoid] = new WMonad[F, ({type R[T] = Writer[F, T]})#R] {
-
-    def write[T](log: F, value: T): Writer[F, T] =
-      Writer(log, value)
-
-    def pure[A](a: A): Writer[F, A] =
-      Writer.zero(a)
-
-    def flatMap[A, B](fa: Writer[F, A])(f: (A) => Writer[F, B]): Writer[F, B] =
-      fa.flatMap(f)
-  }
-
-}
-
-trait ValidMonads extends WriterMonads {
+trait ValidMonads {
 
   implicit def validMonad[E] = new FMonad[E, ({type V[T] = Valid[E,T]})#V] {
     def flatMap[A, B](fa: Valid[E, A])(f: (A) => Valid[E, B]): Valid[E, B] =
@@ -55,35 +55,35 @@ trait ValidMonads extends WriterMonads {
       }
   }
 
-  implicit def validWriterMonad[E, F:Monoid] = new FWMonad[E, F, ({type R[T] = ValidWriter[E, F, T]})#R] {
-
-    def write[T](log:F, value:T): ValidWriter[E, F, T] =
-      Xor.right(Writer(log, value))
-
-    def failure(validationFailure: => E): ValidWriter[E, F, Nothing] =
-      validMonad.failure(validationFailure)
-
-    def failures(validationFailures: => NonEmptyList[E]): ValidWriter[E, F, Nothing] =
-      validMonad.failures(validationFailures)
-
-    def onFailure[T](value: ValidWriter[E, F, T])(f: (NonEmptyList[E]) => ValidWriter[E, F, T]): ValidWriter[E, F, T] =
-      value match {
-        case Xor.Right(_) =>
-          value
-        case Xor.Left(vf) =>
-          f(vf)
-      }
-
-    def pure[A](a:A): ValidWriter[E, F, A] =
-      validMonad.pure(writerMonad.pure(a))
-
-    def flatMap[A, B](fa: ValidWriter[E, F, A])(f: (A) => ValidWriter[E, F, B]): ValidWriter[E, F, B] =
-      fa.flatMap{v =>
-        f(v.value).map{w =>
-          v.flatMap(_ => w)
-        }
-      }
-  }
+//  implicit def validWriterMonad[E, F:Monoid] = new FWMonad[E, F, ({type R[T] = ValidWriter[E, F, T]})#R] {
+//
+//    def write[T](log:F, value:T): ValidWriter[E, F, T] =
+//      Xor.right(Writer(log, value))
+//
+//    def failure(validationFailure: => E): ValidWriter[E, F, Nothing] =
+//      validMonad.failure(validationFailure)
+//
+//    def failures(validationFailures: => NonEmptyList[E]): ValidWriter[E, F, Nothing] =
+//      validMonad.failures(validationFailures)
+//
+//    def onFailure[T](value: ValidWriter[E, F, T])(f: (NonEmptyList[E]) => ValidWriter[E, F, T]): ValidWriter[E, F, T] =
+//      value match {
+//        case Xor.Right(_) =>
+//          value
+//        case Xor.Left(vf) =>
+//          f(vf)
+//      }
+//
+//    def pure[A](a:A): ValidWriter[E, F, A] =
+//      validMonad.pure(writerMonad.pure(a))
+//
+//    def flatMap[A, B](fa: ValidWriter[E, F, A])(f: (A) => ValidWriter[E, F, B]): ValidWriter[E, F, B] =
+//      fa.flatMap{v =>
+//        f(v.value).map{w =>
+//          v.flatMap(_ => w)
+//        }
+//      }
+//  }
 }
 
 case class FutureLift[T](t: T) extends Future[T] {
@@ -144,45 +144,45 @@ trait FutureMonads extends ValidMonads {
         }
     }
 
-  implicit def futureValidMonadWriter[E, L](implicit monad:Monad[Future], monoid:Monoid[L]):FWMonad[E, L, ({type V[T] = FutureValidWriter[E,L,T]})#V] =
-    new FWMonad[E, L, ({type V[T] = FutureValidWriter[E,L,T]})#V] {
-      def write[T](log: L, value: T): FutureValidWriter[E, L, T] =
-        monad.pure(Xor.right(Writer(log, value)))
-
-      def failure(validationFailure: => E): FutureValidWriter[E, L, Nothing] =
-        monad.pure(validMonad.failure(validationFailure))
-
-      def failures(validationFailures: => NonEmptyList[E]): FutureValidWriter[E, L, Nothing] =
-        monad.pure(validMonad.failures(validationFailures))
-
-      def onFailure[T](value: FutureValidWriter[E, L, T])(f: (NonEmptyList[E]) => FutureValidWriter[E, L, T]): FutureValidWriter[E, L, T] =
-        monad.flatMap(value) {
-          case Xor.Left(vf) =>
-            f(vf)
-          case _ => value
-        }
-
-      def pure[A](a:A): FutureValidWriter[E, L, A] =
-        monad.pure(validMonad.pure(writerMonad.pure(a)))
-
-      def flatMap[A, B](fa: FutureValidWriter[E, L, A])(f: (A) => FutureValidWriter[E, L, B]): FutureValidWriter[E, L, B] =
-        monad.flatMap(fa) {
-          case Xor.Left(vf) =>
-            monad.pure(validMonad.failures(vf))
-          case Xor.Right(w@Writer(_, s)) =>
-            monad.map(f(s)){
-              case Xor.Left(vf) =>
-                validMonad.failures(vf)
-              case Xor.Right(r) =>
-                validMonad.pure(w.flatMap(_ => r))
-            }
-        }
-    }
+//  implicit def futureValidMonadWriter[E, L](implicit monad:Monad[Future], monoid:Monoid[L]):FWMonad[E, L, ({type V[T] = FutureValidWriter[E,L,T]})#V] =
+//    new FWMonad[E, L, ({type V[T] = FutureValidWriter[E,L,T]})#V] {
+//      def write[T](log: L, value: T): FutureValidWriter[E, L, T] =
+//        monad.pure(Xor.right(Writer(log, value)))
+//
+//      def failure(validationFailure: => E): FutureValidWriter[E, L, Nothing] =
+//        monad.pure(validMonad.failure(validationFailure))
+//
+//      def failures(validationFailures: => NonEmptyList[E]): FutureValidWriter[E, L, Nothing] =
+//        monad.pure(validMonad.failures(validationFailures))
+//
+//      def onFailure[T](value: FutureValidWriter[E, L, T])(f: (NonEmptyList[E]) => FutureValidWriter[E, L, T]): FutureValidWriter[E, L, T] =
+//        monad.flatMap(value) {
+//          case Xor.Left(vf) =>
+//            f(vf)
+//          case _ => value
+//        }
+//
+//      def pure[A](a:A): FutureValidWriter[E, L, A] =
+//        monad.pure(validMonad.pure(writerMonad.pure(a)))
+//
+//      def flatMap[A, B](fa: FutureValidWriter[E, L, A])(f: (A) => FutureValidWriter[E, L, B]): FutureValidWriter[E, L, B] =
+//        monad.flatMap(fa) {
+//          case Xor.Left(vf) =>
+//            monad.pure(validMonad.failures(vf))
+//          case Xor.Right(w@Writer(_, s)) =>
+//            monad.map(f(s)){
+//              case Xor.Left(vf) =>
+//                validMonad.failures(vf)
+//              case Xor.Right(r) =>
+//                validMonad.pure(w.flatMap(_ => r))
+//            }
+//        }
+//    }
 }
 
 
 
-trait IOMonads extends ValidMonads with WriterMonads {
+trait IOMonads extends ValidMonads {
   implicit val ioMonad = new Monad[({type R[T] = IO[T]})#R] {
     def flatMap[A, B](fa:IO[A])(f: (A) => IO[B]):IO[B] =
       fa.flatMap(f)
@@ -217,54 +217,54 @@ trait IOMonads extends ValidMonads with WriterMonads {
       ioMonad.pure(validMonad.failure(validationFailure))
   }
 
-  implicit def ioWriterMonad[L](implicit monoid:Monoid[L]) = new WMonad[L, ({type IW[T] = IOWriter[L, T]})#IW] {
+//  implicit def ioWriterMonad[L](implicit monoid:Monoid[L]) = new WMonad[L, ({type IW[T] = IOWriter[L, T]})#IW] {
+//
+//    override def write[T](log: L, value: T): IOWriter[L, T] =
+//      IO(Writer(log, value))
+//
+//    def pure[A](a:A): IOWriter[L, A] = IO(Writer.zero(a))
+//
+//    def flatMap[A, B](fa: IOWriter[L, A])(f: (A) => IOWriter[L, B]): IOWriter[L, B] =
+//      fa.flatMap{w =>
+//        f(w.value).map{w2 =>
+//          Writer(monoid.combine(w.log, w2.log), w2.value)
+//        }
+//      }
+//  }
 
-    override def write[T](log: L, value: T): IOWriter[L, T] =
-      IO(Writer(log, value))
-
-    def pure[A](a:A): IOWriter[L, A] = IO(Writer.zero(a))
-
-    def flatMap[A, B](fa: IOWriter[L, A])(f: (A) => IOWriter[L, B]): IOWriter[L, B] =
-      fa.flatMap{w =>
-        f(w.value).map{w2 =>
-          Writer(monoid.combine(w.log, w2.log), w2.value)
-        }
-      }
-  }
-
-  implicit def ioValidWriterMonad[E, L](implicit monoid:Monoid[L]) = new FWMonad[E, L, ({type IWV[T] = IOValidWriter[E, L, T]})#IWV] {
-
-    def write[T](log: L, value: T): IOValidWriter[E, L, T] =
-      IO(Xor.right(Writer(log, value)))
-
-    def pure[A](a:A): IOValidWriter[E, L, A] =
-      IO(Xor.right(Writer.zero(a)))
-
-    def failure(validationFailure: => E): IOValidWriter[E, L, Nothing] =
-      IO(Xor.left(NonEmptyList(validationFailure)))
-
-    def failures(validationFailures: => NonEmptyList[E]): IOValidWriter[E, L, Nothing] =
-      IO(Xor.left(validationFailures))
-
-    def onFailure[T](value: IOValidWriter[E, L, T])(f: (NonEmptyList[E]) => IOValidWriter[E, L, T]): IOValidWriter[E, L, T] =
-      value.flatMap{
-        case Xor.Left(vf) =>
-          f(vf)
-        case Xor.Right(_) =>
-          value
-      }
-
-    def flatMap[A, B](fa: IOValidWriter[E, L, A])(f: (A) => IOValidWriter[E, L, B]): IOValidWriter[E, L, B] =
-      fa.flatMap{
-        case Xor.Left(_) =>
-          fa.asInstanceOf[IOValidWriter[E, L, B]]
-        case Xor.Right(Writer(l, v)) =>
-          f(v).map(_.map(w => Writer(monoid.combine(l, w.log), w.value)))
-      }
-  }
+//  implicit def ioValidWriterMonad[E, L](implicit monoid:Monoid[L]) = new FWMonad[E, L, ({type IWV[T] = IOValidWriter[E, L, T]})#IWV] {
+//
+//    def write[T](log: L, value: T): IOValidWriter[E, L, T] =
+//      IO(Xor.right(Writer(log, value)))
+//
+//    def pure[A](a:A): IOValidWriter[E, L, A] =
+//      IO(Xor.right(Writer.zero(a)))
+//
+//    def failure(validationFailure: => E): IOValidWriter[E, L, Nothing] =
+//      IO(Xor.left(NonEmptyList(validationFailure)))
+//
+//    def failures(validationFailures: => NonEmptyList[E]): IOValidWriter[E, L, Nothing] =
+//      IO(Xor.left(validationFailures))
+//
+//    def onFailure[T](value: IOValidWriter[E, L, T])(f: (NonEmptyList[E]) => IOValidWriter[E, L, T]): IOValidWriter[E, L, T] =
+//      value.flatMap{
+//        case Xor.Left(vf) =>
+//          f(vf)
+//        case Xor.Right(_) =>
+//          value
+//      }
+//
+//    def flatMap[A, B](fa: IOValidWriter[E, L, A])(f: (A) => IOValidWriter[E, L, B]): IOValidWriter[E, L, B] =
+//      fa.flatMap{
+//        case Xor.Left(_) =>
+//          fa.asInstanceOf[IOValidWriter[E, L, B]]
+//        case Xor.Right(Writer(l, v)) =>
+//          f(v).map(_.map(w => Writer(monoid.combine(l, w.log), w.value)))
+//      }
+//  }
 }
 
-trait ReaderMonads extends ValidMonads with FutureMonads with WriterMonads{
+trait ReaderMonads extends ValidMonads with FutureMonads {
 
   implicit def readerMonad[F] = new Monad[({type R[T] = Reader[F,T]})#R] {
     def flatMap[A, B](fa:Reader[F,A])(f: (A) => Reader[F,B]):Reader[F,B] =
@@ -354,50 +354,50 @@ trait ReaderMonads extends ValidMonads with FutureMonads with WriterMonads{
         readerMonad.pure(monad.pure(validMonad.failure(validationFailure)))
     }
 
-  implicit def readerWriterMonad[F, L](implicit monoid:Monoid[L]) = new WMonad[L, ({type IW[T] = ReaderWriter[F, L, T]})#IW] {
+//  implicit def readerWriterMonad[F, L](implicit monoid:Monoid[L]) = new WMonad[L, ({type IW[T] = ReaderWriter[F, L, T]})#IW] {
+//
+//    def write[T](log: L, value: T): ReaderWriter[F, L, T] =
+//      ReaderFacade(Writer(log, value))
+//
+//    def pure[A](a:A): ReaderWriter[F, L, A] = ReaderFacade(Writer.zero(a))
+//
+//    def flatMap[A, B](fa: ReaderWriter[F, L, A])(f: (A) => ReaderWriter[F, L, B]): ReaderWriter[F, L, B] =
+//      fa.flatMap{w =>
+//        f(w.value).map{w2 =>
+//          Writer(monoid.combine(w.log, w2.log), w2.value)
+//        }
+//      }
+//  }
 
-    def write[T](log: L, value: T): ReaderWriter[F, L, T] =
-      ReaderFacade(Writer(log, value))
-
-    def pure[A](a:A): ReaderWriter[F, L, A] = ReaderFacade(Writer.zero(a))
-
-    def flatMap[A, B](fa: ReaderWriter[F, L, A])(f: (A) => ReaderWriter[F, L, B]): ReaderWriter[F, L, B] =
-      fa.flatMap{w =>
-        f(w.value).map{w2 =>
-          Writer(monoid.combine(w.log, w2.log), w2.value)
-        }
-      }
-  }
-
-  implicit def readerValidWriterMonad[F, E, L](implicit monoid:Monoid[L]) = new FWMonad[E, L, ({type IVW[T] = ReaderValidWriter[F, E, L, T]})#IVW] {
-
-    def write[T](log: L, value: T): ReaderValidWriter[F, E, L, T] =
-      ReaderFacade(Xor.right(Writer(log, value)))
-
-    def failure(validationFailure: => E): ReaderValidWriter[F, E, L, Nothing] =
-      ReaderFacade(Xor.left(NonEmptyList(validationFailure)))
-
-    def failures(validationFailures: => NonEmptyList[E]): ReaderValidWriter[F, E, L, Nothing] =
-      ReaderFacade(Xor.left(validationFailures))
-
-    def onFailure[T](value: ReaderValidWriter[F, E, L, T])(f: (NonEmptyList[E]) => ReaderValidWriter[F, E, L, T]): ReaderValidWriter[F, E, L, T] =
-      value.flatMap{
-        case Xor.Right(w) =>
-          ReaderFacade(Xor.right(w))  // returning value here causes loss of information, not sure why
-        case Xor.Left(vf) =>
-          f(vf)
-      }
-
-    def pure[A](a:A): ReaderValidWriter[F, E, L, A] =
-      ReaderFacade(Xor.right(Writer.zero(a)))
-
-    def flatMap[A, B](fa: ReaderValidWriter[F, E, L, A])(f: (A) => ReaderValidWriter[F, E, L, B]): ReaderValidWriter[F, E, L, B] =
-      fa.flatMap{
-        case Xor.Right(Writer(l,v)) =>
-          f(v).map(_.map(w => Writer(monoid.combine(l, w.log), w.value)))
-        case Xor.Left(vf) =>
-          ReaderFacade(Xor.left(vf))
-      }
-  }
+//  implicit def readerValidWriterMonad[F, E, L](implicit monoid:Monoid[L]) = new FWMonad[E, L, ({type IVW[T] = ReaderValidWriter[F, E, L, T]})#IVW] {
+//
+//    def write[T](log: L, value: T): ReaderValidWriter[F, E, L, T] =
+//      ReaderFacade(Xor.right(Writer(log, value)))
+//
+//    def failure(validationFailure: => E): ReaderValidWriter[F, E, L, Nothing] =
+//      ReaderFacade(Xor.left(NonEmptyList(validationFailure)))
+//
+//    def failures(validationFailures: => NonEmptyList[E]): ReaderValidWriter[F, E, L, Nothing] =
+//      ReaderFacade(Xor.left(validationFailures))
+//
+//    def onFailure[T](value: ReaderValidWriter[F, E, L, T])(f: (NonEmptyList[E]) => ReaderValidWriter[F, E, L, T]): ReaderValidWriter[F, E, L, T] =
+//      value.flatMap{
+//        case Xor.Right(w) =>
+//          ReaderFacade(Xor.right(w))  // returning value here causes loss of information, not sure why
+//        case Xor.Left(vf) =>
+//          f(vf)
+//      }
+//
+//    def pure[A](a:A): ReaderValidWriter[F, E, L, A] =
+//      ReaderFacade(Xor.right(Writer.zero(a)))
+//
+//    def flatMap[A, B](fa: ReaderValidWriter[F, E, L, A])(f: (A) => ReaderValidWriter[F, E, L, B]): ReaderValidWriter[F, E, L, B] =
+//      fa.flatMap{
+//        case Xor.Right(Writer(l,v)) =>
+//          f(v).map(_.map(w => Writer(monoid.combine(l, w.log), w.value)))
+//        case Xor.Left(vf) =>
+//          ReaderFacade(Xor.left(vf))
+//      }
+//  }
 }
 

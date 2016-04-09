@@ -108,10 +108,10 @@ object ActorN {
 
   object Future {
 
-    def apply[D[_], R[+ _]](transform: => D ~> ({type I[T] = Future[R[T]]})#I)(implicit af: ActorRefFactory, timeout: Timeout): (D ~> ({type I[T] = Future[R[T]]})#I) =
+    def apply[D[_], R[_]](transform: => D ~> ({type I[T] = Future[R[T]]})#I)(implicit af: ActorRefFactory, timeout: Timeout): (D ~> ({type I[T] = Future[R[T]]})#I) =
       new FutureActorTransform[D, R](transform, None)
 
-    def apply[D[_], R[+ _]](transform: => D ~> ({type I[T] = Future[R[T]]})#I, name: String)(implicit af: ActorRefFactory, timeout: Timeout): (D ~> ({type I[T] = Future[R[T]]})#I) =
+    def apply[D[_], R[_]](transform: => D ~> ({type I[T] = Future[R[T]]})#I, name: String)(implicit af: ActorRefFactory, timeout: Timeout): (D ~> ({type I[T] = Future[R[T]]})#I) =
       new FutureActorTransform[D, R](transform, Some(name))
   }
 

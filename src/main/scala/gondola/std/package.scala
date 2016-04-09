@@ -1,6 +1,6 @@
 package gondola
 
-import cats.data.{Xor, NonEmptyList}
+import cats.data.{Writer, Xor, NonEmptyList}
 import scala.concurrent.Future
 
 package object std {
@@ -10,6 +10,8 @@ package object std {
   type ValidE[E] = Valid[E, _]
 
   type Valid[E, T] = Xor[NonEmptyList[E], T]
+
+  type Writer[L, T] = cats.data.WriterT[Id, L, T]
 
   type IOValid[E, T] = IO[Valid[E, T]]
 
