@@ -1,6 +1,6 @@
 package gondola
 
-trait Reader[F, +T] {
+trait Reader[F, T] {
   def apply(c: => F):T
 
   def map[S](transformF: T => S): Reader[F, S]
@@ -13,7 +13,7 @@ object Reader {
     ReaderImpl(f)
 }
 
-case class ReaderImpl[F, +T](wrappedF: F => T) extends Reader[F, T] {
+case class ReaderImpl[F, T](wrappedF: F => T) extends Reader[F, T] {
 
   def apply(c: => F) = wrappedF(c)
 
@@ -25,7 +25,7 @@ case class ReaderImpl[F, +T](wrappedF: F => T) extends Reader[F, T] {
 
 }
 
-case class ReaderFacade[F, +T](value:T) extends Reader[F, T] {
+case class ReaderFacade[F, T](value:T) extends Reader[F, T] {
 
   def apply(c: => F) =
     value

@@ -1,11 +1,12 @@
 package gondola.authentication
 
+import gondola.Monad._
 import gondola._
 import gondola.repository._
 
 object AuthenticationCommandHandler {
 
-  def apply[M[+_]:VMonad](repository: (KvD[UserLogin, UserCredentials])#I ~> M, maxNumberOfTries:Int) =
+  def apply[M[_]:VMonad](repository: (KvD[UserLogin, UserCredentials])#I ~> M, maxNumberOfTries:Int) =
     new AuthenticationDirectives(repository) with (AuthenticationCommand ~~> M) {
 
       import VMonad._
@@ -45,7 +46,7 @@ object AuthenticationCommandHandler {
               val newCount = uc.failureCount + 1
               repository(Add(uc.userLogin -> uc.copy(failureCount = newCount, isLocked = newCount >= maxNumberOfTries)))
             case None =>
-              point(Acknowledged)
+              acknowledged
           }
 
         case ResetFailureCount(userLogin) =>
@@ -53,7 +54,7 @@ object AuthenticationCommandHandler {
             case Some(uc) =>
               repository(Add(uc.userLogin -> uc.copy(failureCount = 0)))
             case None =>
-              point(Acknowledged)
+              acknowledged
           }
       }
     }

@@ -5,22 +5,22 @@ import java.util.concurrent.atomic.AtomicReference
 
 object InMemoryKeyValueQueryExecutor {
 
-  def apply[Out[+_]:Monad, Key, Value](state:AtomicReference[Map[Key, Value]]) =
-  new (KvQ[Key, Value]#I ~~> Out) {
+  def apply[M[_]:Monad, Key, Value](state:AtomicReference[Map[Key, Value]]) =
+  new (KvQ[Key, Value]#I ~~> M) {
     import Monad._
 
     def handle[T] = {
       case Contains(key) =>
-        point(state.get().contains(key))
+        pure(state.get().contains(key))
 
       case Get(key) =>
-        point(state.get().get(key))
+        pure(state.get().get(key))
 
       case Iterator() =>
-        point(state.get().iterator)
+        pure(state.get().iterator)
 
       case Values() =>
-        point(state.get().valuesIterator)
+        pure(state.get().valuesIterator)
     }
   }
 

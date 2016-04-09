@@ -5,8 +5,8 @@ import gondola.repository._
 
 object AuthenticationQueryExecutor {
 
-  def apply[Out[+_]:VMonad](repository: (KvD[UserLogin, UserCredentials])#I ~> Out) =
-    new AuthenticationDirectives(repository) with (AuthenticationQuery ~~> Out) {
+  def apply[M[_]:VMonad](repository: (KvD[UserLogin, UserCredentials])#I ~> M) =
+    new AuthenticationDirectives(repository) with (AuthenticationQuery ~~> M) {
 
       import VMonad._
 
@@ -16,7 +16,7 @@ object AuthenticationQueryExecutor {
             case UserCredentials(actualUserLogin, _, true, _) =>
               failure("UserLockedFailure(actualUserLogin)")
             case UserCredentials(actualUserLogin, _, _, _) =>
-              point(actualUserLogin)
+              pure(actualUserLogin)
           }
 
         case IsLocked(userLogin) =>

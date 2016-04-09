@@ -1,13 +1,11 @@
 package gondola
 
-import scalaz.Functor
+import cats.Functor
 
-
-//taken from scalaz
 trait ~>[-F[_], +G[_]] {
   self =>
 
-  def apply[A](fa: F[A]): G[A]
+  def apply[T](fa: F[T]): G[T]
 
   def compose[E[_]](f: E ~> F): E ~> G = new (E ~> G) {
     def apply[A](ea: E[A]) = self(f(ea))
@@ -22,16 +20,16 @@ trait ~>[-F[_], +G[_]] {
 
 trait ~~>[-F[_], +G[_]] extends ~>[F, G] {
 
-  def apply[A](fa: F[A]): G[A] = handle(fa)
+  def apply[T](fa: F[T]): G[T] = handle(fa)
 
-  def handle[A]:Function[F[A], G[A]]
+  def handle[T]:Function[F[T], G[T]]
 
 }
 
 object NaturalTransformationFunctions {
   def lift[M[_]:Functor, F[_], G[_]](nt: ~>[F, G]) =
-    new (({type I[T] = M[F[T]]})#I ~> ({type I[T] = M[G[T]]})#I) {
-      def apply[A](fa: M[F[A]]): M[G[A]] =
-        Functor[M].map(fa)(nt.apply)
+    new (({type I[T] = M[F[T]]})#I ~> ({type I[T] = M[G[T]]})#I) { // using kind doesnt work here
+    def apply[A](fa: M[F[A]]): M[G[A]] =
+      Functor[M].map(fa)(nt.apply)
     }
 }

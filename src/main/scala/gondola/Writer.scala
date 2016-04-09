@@ -1,14 +1,11 @@
 package gondola
 
-import scalaz.Monoid
+import cats.Monoid
 
-/**
- * Created by jamie.pullar on 02/07/2015.
- */
-case class Writer[L, +T](log:L, value:T)(implicit m:Monoid[L]) {
+case class Writer[L, T](log:L, value:T)(implicit m:Monoid[L]) {
   def flatMap[S](f: T => Writer[L, S]) = {
     val Writer(l, result) = f(value)
-    Writer(m.append(log, l), result)
+    Writer(m.combine(log, l), result)
   }
 
   def map[S](f: T => S) =
@@ -17,5 +14,5 @@ case class Writer[L, +T](log:L, value:T)(implicit m:Monoid[L]) {
 
 object Writer {
   def zero[L, T](t:T)(implicit monoid:Monoid[L]) =
-    Writer(monoid.zero, t)
+    Writer(monoid.empty, t)
 }

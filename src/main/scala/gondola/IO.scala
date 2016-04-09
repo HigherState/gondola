@@ -1,6 +1,6 @@
 package gondola
 
-trait IO[+T] {
+trait IO[T] {
 
   def run():T
 
@@ -14,7 +14,7 @@ object IO {
     IOImpl(() => f)
 }
 
-case class IOImpl[+T](t: () => T) extends IO[T] {
+case class IOImpl[T](t: () => T) extends IO[T] {
 
   def run():T = t()
 

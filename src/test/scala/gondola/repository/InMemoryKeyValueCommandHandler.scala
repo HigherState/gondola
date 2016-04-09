@@ -5,8 +5,8 @@ import gondola._
 
 object InMemoryKeyValueCommandHandler {
 
-  def apply[Out[+_]:Monad, Key, Value](state:AtomicReference[Map[Key, Value]]) =
-    new (KvC[Key,Value]#I ~~> Out) {
+  def apply[M[_]:Monad, Key, Value](state:AtomicReference[Map[Key, Value]]) =
+    new (KvC[Key,Value]#I ~~> M) {
 
       import Monad._
 
