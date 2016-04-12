@@ -7,8 +7,6 @@ package object std {
 
   type Id[T] = T
 
-  type ValidE[E] = Valid[E, _]
-
   type Valid[E, T] = Xor[NonEmptyList[E], T]
 
   type Writer[L, T] = cats.data.WriterT[Id, L, T]

@@ -52,6 +52,7 @@ trait MonadOps {
 
 object Monad extends MonadOps with FlatMapSyntax with OptionOps with TraverseSyntax with ToFunctorOps
 
+
 trait FMonad[E, M[_]] extends Monad[M] {
 
   def failure(validationFailure: => E):M[Nothing]

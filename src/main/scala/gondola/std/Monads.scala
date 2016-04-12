@@ -12,10 +12,10 @@ object IdMonad {
   implicit val idMonad = cats.Id
 }
 
-object ValidMonads extends ValidMonads
+object ValidMonadsOld extends ValidMonadsOld
 
 
-object FutureMonads extends FutureMonads
+object FutureMonadsOld extends FutureMonadsOld
 
 //trait WriterMonads[F] {
 //
@@ -33,7 +33,7 @@ object FutureMonads extends FutureMonads
 //
 //}
 
-trait ValidMonads {
+trait ValidMonadsOld {
 
   implicit def validMonad[E] = new FMonad[E, ({type V[T] = Valid[E,T]})#V] {
     def flatMap[A, B](fa: Valid[E, A])(f: (A) => Valid[E, B]): Valid[E, B] =
@@ -110,7 +110,7 @@ case class FutureLift[T](t: T) extends Future[T] {
   def result(atMost: Duration)(implicit permit: CanAwait): T = t
 }
 
-trait FutureMonads extends ValidMonads {
+trait FutureMonadsOld extends ValidMonadsOld {
   implicit def futureMonad(implicit ec:ExecutionContext):Monad[scala.concurrent.Future] =
     new Monad[Future] {
       def pure[A](a:A): Future[A] = FutureLift(a)
@@ -182,7 +182,7 @@ trait FutureMonads extends ValidMonads {
 
 
 
-trait IOMonads extends ValidMonads {
+trait IOMonadsOld extends ValidMonadsOld {
   implicit val ioMonad = new Monad[({type R[T] = IO[T]})#R] {
     def flatMap[A, B](fa:IO[A])(f: (A) => IO[B]):IO[B] =
       fa.flatMap(f)
@@ -264,7 +264,7 @@ trait IOMonads extends ValidMonads {
 //  }
 }
 
-trait ReaderMonads extends ValidMonads with FutureMonads {
+trait ReaderMonadsOld extends ValidMonadsOld with FutureMonadsOld {
 
   implicit def readerMonad[F] = new Monad[({type R[T] = Reader[F,T]})#R] {
     def flatMap[A, B](fa:Reader[F,A])(f: (A) => Reader[F,B]):Reader[F,B] =

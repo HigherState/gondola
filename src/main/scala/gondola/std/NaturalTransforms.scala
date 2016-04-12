@@ -5,7 +5,7 @@ import cats.data.{Xor}
 import scala.concurrent.ExecutionContext
 import gondola._
 
-trait IdentityTransforms extends ReaderMonads with IOMonads {
+trait IdentityTransforms extends ReaderMonadsOld with IOMonadsOld {
 
   implicit def directPipe[T[_]] = new (T ~> T) {
 

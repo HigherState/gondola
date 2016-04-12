@@ -9,7 +9,10 @@ object Writer {
     cats.data.Writer(l, t)
 }
 
-trait WriterMonads[L, E] {
+trait WriterMonads[L, E] extends ValidMonads[E] {
+  implicit def writerMonoid:Monoid[L]
 
-  cats
+  val writerMonad = data.WriterT.writerTIdMonad[L]
+
+  val writerValidMonad = data.WriterT.writerTMonad[Valid[E ,?], L](validMonad, writerMonoid)
 }
