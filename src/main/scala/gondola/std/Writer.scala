@@ -8,3 +8,8 @@ object Writer {
   def apply[L, T](l:L, t:T) =
     cats.data.Writer(l, t)
 }
+
+trait WriterMonads[L, E] {
+
+  cats
+}
