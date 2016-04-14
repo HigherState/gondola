@@ -1,8 +1,10 @@
 package gondola.std
 
-import cats.data.NonEmptyList
+import cats.MonadError
+
 
 trait ValidMonads[E] {
 
-  val validMonad = cats.data.XorT.xorTMonadError[Id, NonEmptyList[E]](cats.Id)
+  val validMonad:MonadError[Valid[E,?], E] =
+    cats.data.XorT.xorTMonadError[Id, E](cats.Id)
 }

@@ -16,10 +16,12 @@ object ImplicitMonadTest extends WriterTFunctions {
     value.flatMap(f)
   }
 
-  def errorValue[M[_], E](value:M[Int], error:E)(implicit me:MonadError[M, NonEmptyList[E]]):M[Boolean] = {
+  def errorValue[M[_], E](value:M[Int], error:E)(implicit me:MonadError[M, E]):M[Boolean] = {
+    import gondola.MonadError._
+
     value.flatMap{
       case i if i % 2 == 0 =>
-        me.raiseError(NonEmptyList(error))
+        raiseError(error)
       case _ =>
         pure(true)
     }

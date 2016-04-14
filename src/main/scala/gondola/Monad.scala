@@ -97,3 +97,13 @@ trait WMonadOps extends MonadOps {
 trait FWMonad[E, L, M[_]] extends FMonad[E, M] with WMonad[L, M]
 
 
+trait MonadErrorOps {
+
+  def raiseError[M[_], E, A](e:E)(implicit m:cats.MonadError[M, E]):M[A] =
+    m.raiseError(e)
+
+}
+
+object MonadError extends MonadErrorOps
+
+

@@ -18,26 +18,26 @@ trait IdentityTransforms extends ReaderMonadsOld with IOMonadsOld {
     def apply[A](fa: Id[A]): T[A] = implicitly[Monad[T]].pure(fa)
   }
 
-  implicit def idValidPipe[E]: (Id ~> ({type V[T] = Valid[E,T]})#V) =
-    identityOutPipe[({type V[T] = Valid[E,T]})#V]
-
-  implicit def idFuturePipe(implicit ex:ExecutionContext): (Id ~> scala.concurrent.Future) =
-    identityOutPipe[scala.concurrent.Future]
-
-  implicit def idReaderPipe[F]: (Id ~> ({type R[T] = Reader[F,T]})#R) =
-    identityOutPipe[({type R[T] = Reader[F,T]})#R]
-
-  implicit def idFutureValidPipe[E](implicit ex:ExecutionContext): (Id ~> ({type FV[T] = FutureValid[E,T]})#FV) =
-    identityOutPipe[({type V[T] = FutureValid[E,T]})#V]
-
-  implicit def idWriter[L:Monoid]:(Id ~> ({type R[T] = Writer[L,T]})#R) =
-    identityOutPipe[({type R[T] = Writer[L,T]})#R]
+//  implicit def idValidPipe[E]: (Id ~> ({type V[T] = Valid[E,T]})#V) =
+//    identityOutPipe[({type V[T] = Valid[E,T]})#V]
+//
+//  implicit def idFuturePipe(implicit ex:ExecutionContext): (Id ~> scala.concurrent.Future) =
+//    identityOutPipe[scala.concurrent.Future]
+//
+//  implicit def idReaderPipe[F]: (Id ~> ({type R[T] = Reader[F,T]})#R) =
+//    identityOutPipe[({type R[T] = Reader[F,T]})#R]
+//
+//  implicit def idFutureValidPipe[E](implicit ex:ExecutionContext): (Id ~> ({type FV[T] = FutureValid[E,T]})#FV) =
+//    identityOutPipe[({type V[T] = FutureValid[E,T]})#V]
+//
+//  implicit def idWriter[L:Monoid]:(Id ~> ({type R[T] = Writer[L,T]})#R) =
+//    identityOutPipe[({type R[T] = Writer[L,T]})#R]
 
 //  implicit def idValidWriterPipe[E, L:Monoid]: (Id ~> ({type RV[T] = ValidWriter[E, L, T]})#RV) =
 //    identityOutPipe[({type RV[T] = ValidWriter[E, L, T]})#RV]
 
-  implicit def idReaderValidPipe[F,E]: (Id ~> ({type RV[T] = ReaderValid[F, E,T]})#RV) =
-    identityOutPipe[({type RV[T] = ReaderValid[F, E,T]})#RV]
+//  implicit def idReaderValidPipe[F,E]: (Id ~> ({type RV[T] = ReaderValid[F, E,T]})#RV) =
+//    identityOutPipe[({type RV[T] = ReaderValid[F, E,T]})#RV]
 
 //  implicit def idReaderWriterPipe[F,L:Monoid]: (Id ~> ({type RV[T] = ReaderWriter[F, L, T]})#RV) =
 //    identityOutPipe[({type RV[T] = ReaderWriter[F, L, T]})#RV]
@@ -48,14 +48,14 @@ trait IdentityTransforms extends ReaderMonadsOld with IOMonadsOld {
   implicit def idReaderFuturePipe[F](implicit ex:ExecutionContext): (Id ~> ({type FR[T] = ReaderFuture[F, T]})#FR) =
     identityOutPipe[({type FR[T] = ReaderFuture[F, T]})#FR]
 
-  implicit def idReaderFutureValidPipe[F,E](implicit ex:ExecutionContext): (Id ~> ({type FRV[T] = ReaderFutureValid[F, E, T]})#FRV) =
-    identityOutPipe[({type FRV[T] = ReaderFutureValid[F, E, T]})#FRV]
+//  implicit def idReaderFutureValidPipe[F,E](implicit ex:ExecutionContext): (Id ~> ({type FRV[T] = ReaderFutureValid[F, E, T]})#FRV) =
+//    identityOutPipe[({type FRV[T] = ReaderFutureValid[F, E, T]})#FRV]
 
   implicit val idIOPipe:(Id ~> IO) =
     identityOutPipe[IO]
 
-  implicit def idIOValidPipe[E]:(Id ~> ({type IV[T] = IOValid[E,T]})#IV) =
-    identityOutPipe[({type IV[T] = IOValid[E,T]})#IV]
+//  implicit def idIOValidPipe[E]:(Id ~> ({type IV[T] = IOValid[E,T]})#IV) =
+//    identityOutPipe[({type IV[T] = IOValid[E,T]})#IV]
 //
 //  implicit def idIOWriterPipe[L:Monoid]: (Id ~> ({type RV[T] = IOWriter[L, T]})#RV) =
 //    identityOutPipe[({type RV[T] = IOWriter[L, T]})#RV]
@@ -150,11 +150,11 @@ trait ValidTransforms {
 trait FutureTransforms {
   import scala.concurrent.Future
 
-  implicit def FutureFutureValidPipe[E](implicit ec:ExecutionContext) =
-    new (Future ~> ({type V[T] = FutureValid[E,T]})#V) {
-
-      def apply[A](value: Future[A]) = value.map(Xor.right)
-    }
+//  implicit def FutureFutureValidPipe[E](implicit ec:ExecutionContext) =
+//    new (Future ~> ({type V[T] = FutureValid[E,T]})#V) {
+//
+//      def apply[A](value: Future[A]) = value.map(Xor.right)
+//    }
 
   implicit def FutureReaderFuturePipe[F](implicit ec:ExecutionContext) =
     new (Future ~> ({type RF[T] = ReaderFuture[F,T]})#RF) {
@@ -162,11 +162,11 @@ trait FutureTransforms {
       def apply[A](value: Future[A]) = ReaderFacade(value)
     }
 
-  implicit def FutureFutureReaderValidPipe[F, E](implicit ec:ExecutionContext) =
-    new (Future ~> ({type RFV[T] = ReaderFutureValid[F, E, T]})#RFV) {
-      def apply[T](value: Future[T]) =
-        ReaderFacade(value.map(Xor.right))
-    }
+//  implicit def FutureFutureReaderValidPipe[F, E](implicit ec:ExecutionContext) =
+//    new (Future ~> ({type RFV[T] = ReaderFutureValid[F, E, T]})#RFV) {
+//      def apply[T](value: Future[T]) =
+//        ReaderFacade(value.map(Xor.right))
+//    }
 
   implicit def FutureValidReaderFutureValid[F, E](implicit ec:ExecutionContext) =
     new (({type V[T] = FutureValid[E,T]})#V ~> ({type RFV[T] = ReaderFutureValid[F, E, T]})#RFV) {
@@ -185,11 +185,11 @@ trait FutureTransforms {
 
 trait ReaderTransforms {
 
-  implicit def ReaderReaderValid[F, E] = new (({type R[T] = Reader[F,T]})#R ~> ({type RV[T] = ReaderValid[F, E,T]})#RV) {
-
-    def apply[T](value: Reader[F, T]) =
-      value.map(Xor.right)
-  }
+//  implicit def ReaderReaderValid[F, E] = new (({type R[T] = Reader[F,T]})#R ~> ({type RV[T] = ReaderValid[F, E,T]})#RV) {
+//
+//    def apply[T](value: Reader[F, T]) =
+//      value.map(Xor.right)
+//  }
 
   implicit def ReaderValidReaderFutureValid[F,E] = new (({type RV[T] = ReaderValid[F, E,T]})#RV ~> ({type FRV[T] = ReaderFutureValid[F, E, T]})#FRV) {
 
@@ -197,12 +197,12 @@ trait ReaderTransforms {
       value.map(FutureLift.apply)
   }
 
-  implicit def ReaderFutureFutureReaderValid[F, E] (implicit ec:ExecutionContext) =
-    new (({type FR[T] = ReaderFuture[F,T]})#FR ~> ({type FRV[T] = ReaderFutureValid[F, E, T]})#FRV) {
-
-      def apply[T](value:ReaderFuture[F,T]) =
-        value.map(_.map(Xor.right))
-    }
+//  implicit def ReaderFutureFutureReaderValid[F, E] (implicit ec:ExecutionContext) =
+//    new (({type FR[T] = ReaderFuture[F,T]})#FR ~> ({type FRV[T] = ReaderFutureValid[F, E, T]})#FRV) {
+//
+//      def apply[T](value:ReaderFuture[F,T]) =
+//        value.map(_.map(Xor.right))
+//    }
 //
 //  implicit def ReaderReaderWriter[F,L](implicit m:Monoid[L]) = new (({type R[T] = Reader[F,T]})#R ~> ({type RW[T] = ReaderWriter[F,L,T]})#RW) {
 //    def apply[A](fa: Reader[F, A]): ReaderWriter[F, L, A] =
@@ -236,17 +236,17 @@ trait IOTransforms {
   implicit def IOValidValid[E] = new (({type IV[T] = IOValid[E,T]})#IV ~> ({type V[T] = Valid[E, T]})#V) {
     def apply[A](fa: IOValid[E, A]): Valid[E, A] = fa.run()
   }
-  implicit def IOValid[E] = new (IO ~> ({type V[T] = Valid[E, T]})#V) {
-    def apply[A](fa: IO[A]): Valid[E, A] = Xor.right(fa.run())
-  }
+//  implicit def IOValid[E] = new (IO ~> ({type V[T] = Valid[E, T]})#V) {
+//    def apply[A](fa: IO[A]): Valid[E, A] = Xor.right(fa.run())
+//  }
 //  implicit def IOWriterWriter[L] = new (({type IW[T] = IOWriter[L, T]})#IW ~> ({type W[T] = Writer[L, T]})#W) {
 //    def apply[A](fa: IOWriter[L, A]): Writer[L, A] = fa.run()
 //  }
 
-  implicit def IOIOValid[E] = new (({type R[T] = IO[T]})#R ~> ({type IV[T] = IOValid[E,T]})#IV) {
-    def apply[T](value: IO[T]) =
-      value.map(Xor.right)
-  }
+//  implicit def IOIOValid[E] = new (({type R[T] = IO[T]})#R ~> ({type IV[T] = IOValid[E,T]})#IV) {
+//    def apply[T](value: IO[T]) =
+//      value.map(Xor.right)
+//  }
 
 //  implicit def IOValidWriterValidWriter[E,L](implicit m:Monoid[L]) = new (({type IVW[T] = IO[Valid[E, Writer[L,T]]]})#IVW ~> ({type VW[T] = Valid[E, Writer[L,T]]})#VW) {
 //    def apply[A](fa: IO[Valid[E, Writer[L, A]]]): Valid[E, Writer[L, A]] =
@@ -267,10 +267,10 @@ trait IOTransforms {
     def apply[T](value: IO[T]) =
       Reader(t => value.run())
   }
-  implicit def IOReaderValid[F, E] = new (IO ~> ({type R[T] = ReaderValid[F, E, T]})#R) {
-    def apply[T](value: IO[T]) =
-      Reader(t => Xor.right(value.run()))
-  }
+//  implicit def IOReaderValid[F, E] = new (IO ~> ({type R[T] = ReaderValid[F, E, T]})#R) {
+//    def apply[T](value: IO[T]) =
+//      Reader(t => Xor.right(value.run()))
+//  }
 //  implicit def IOReaderValidWriter[F, E, L](implicit m:Monoid[L]) = new (IO ~> ({type R[T] = ReaderValidWriter[F, E, L, T]})#R) {
 //    def apply[T](value: IO[T]):ReaderValidWriter[F, E, L, T] =
 //      Reader(t => Xor.right(Writer.zero(value.run())))
