@@ -177,6 +177,9 @@ trait ReaderWriterValidTransforms[R, W, E]
   implicit val readerValid2ReaderWriterValid:ReaderValid[R, E, ?] ~> ReaderWriterValid[R, W, E, ?] =
     fromReaderTransform[Valid[E, ?], WriterValid[W, E, ?]]
 
+  implicit val readerWriterValid2ReaderWriterValid:ReaderWriterValid[R, W, E, ?] ~> ReaderWriterValid[R, W, E, ?] =
+    identity[ReaderWriterValid[R, W, E, ?]]
+
 }
 
 

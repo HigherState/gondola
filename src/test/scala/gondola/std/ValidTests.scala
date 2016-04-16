@@ -13,7 +13,7 @@ class ValidTests extends FunSuite with Matchers {
   test("Valid Monad") {
     type X[T] = Valid[String, T]
     val m = validMonad
-    ImplicitMonadTest.mapValue[X](m.pure(3)) should equal (m.pure(false))
+    ImplicitMonadTest.mapIntIsEven[X](m.pure(3)) should equal (m.pure(false))
     ImplicitMonadTest.flatMapValue[X](m.pure(5))(i => m.pure(i.toString)) should equal (m.pure("5"))
     ImplicitMonadTest.errorValue[X, String](m.pure(5), "Not Odd") should equal (m.pure(true))
     //ImplicitMonadTest.errorValue[X, String](m.pure(4), "Not Odd") should equal (m.pure("Not Odd"))

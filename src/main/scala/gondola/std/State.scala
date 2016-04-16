@@ -3,7 +3,6 @@ package gondola.std
 import cats._
 import cats.data._
 
-
 trait StateMonads[S] {
   implicit val stateMonad:MonadState[State[S, ?], S] =
     cats.data.StateT.stateTMonadState[Eval, S]
@@ -26,8 +25,8 @@ trait StateTransforms[S] extends StateMonads[S] with IdTransforms {
   implicit val id2State: Id ~> State[S, ?] =
     fromIdentity[State[S, ?]]
 
-  implicit val state2State: Reader[S, ?] ~> Reader[S, ?] =
-    identity[Reader[S, ?]]
+  implicit val state2State: State[S, ?] ~> State[S, ?] =
+    identity[State[S, ?]]
 }
 
 

@@ -6,6 +6,7 @@ import cats.Functor.ToFunctorOps
 import cats.Monad.ToMonadOps
 import cats.data.NonEmptyList
 import cats.syntax.{TraverseSyntax, FlatMapSyntax}
+import cats.~>
 
 package object authentication {
 

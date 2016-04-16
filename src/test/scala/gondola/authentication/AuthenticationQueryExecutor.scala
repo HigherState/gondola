@@ -1,5 +1,6 @@
 package gondola.authentication
 
+import cats.~>
 import gondola._
 import gondola.repository._
 
