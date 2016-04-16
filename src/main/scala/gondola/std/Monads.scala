@@ -1,7 +1,5 @@
 package gondola.std
 
-import cats.Monoid
-import cats.data.{Xor, NonEmptyList}
 import scala.concurrent.{CanAwait, ExecutionContext, Future}
 import gondola._
 import gondola.Monad
@@ -182,14 +180,14 @@ trait FutureMonadsOld extends ValidMonadsOld {
 
 
 
-trait IOMonadsOld extends ValidMonadsOld {
-  implicit val ioMonad = new Monad[({type R[T] = IO[T]})#R] {
-    def flatMap[A, B](fa:IO[A])(f: (A) => IO[B]):IO[B] =
-      fa.flatMap(f)
-
-    def pure[A](a:A) =
-      IO(a)
-  }
+//trait IOMonadsOld extends ValidMonadsOld {
+//  implicit val ioMonad = new Monad[({type R[T] = IO[T]})#R] {
+//    def flatMap[A, B](fa:IO[A])(f: (A) => IO[B]):IO[B] =
+//      fa.flatMap(f)
+//
+//    def pure[A](a:A) =
+//      IO(a)
+//  }
 //
 //  implicit def ioValidMonad[E] = new FMonad[E, ({type RV[T] = IOValid[E,T]})#RV] {
 //    def flatMap[A, B](fa: IOValid[E,A])(f: (A) => IOValid[E,B]):IOValid[E, B] =
@@ -262,17 +260,17 @@ trait IOMonadsOld extends ValidMonadsOld {
 //          f(v).map(_.map(w => Writer(monoid.combine(l, w.log), w.value)))
 //      }
 //  }
-}
+//}
 
 trait ReaderMonadsOld extends ValidMonadsOld with FutureMonadsOld {
 
-  implicit def readerMonad[F] = new Monad[({type R[T] = Reader[F,T]})#R] {
-    def flatMap[A, B](fa:Reader[F,A])(f: (A) => Reader[F,B]):Reader[F,B] =
-      fa.flatMap(f)
-
-    def pure[A](a:A) =
-      ReaderFacade(a)
-  }
+//  implicit def readerMonad[F] = new Monad[({type R[T] = Reader[F,T]})#R] {
+//    def flatMap[A, B](fa:Reader[F,A])(f: (A) => Reader[F,B]):Reader[F,B] =
+//      fa.flatMap(f)
+//
+//    def pure[A](a:A) =
+//      ReaderFacade(a)
+//  }
 
 //  implicit def readerValidMonad[F,E] = new FMonad[E, ({type RV[T] = ReaderValid[F,E,T]})#RV] {
 //
@@ -300,22 +298,22 @@ trait ReaderMonadsOld extends ValidMonadsOld with FutureMonadsOld {
 //    def failure(validationFailure: => E) =
 //      readerMonad.pure(validMonad.failure(validationFailure))
 //  }
-
-  implicit def readerFutureMonad[F](implicit monad:Monad[Future]):Monad[({type RF[T] = ReaderFuture[F, T]})#RF] =
-    new Monad[({type RF[T] = ReaderFuture[F, T]})#RF] {
-
-      def flatMap[A, B](fa:ReaderFuture[F, A])(f: (A) => ReaderFuture[F,B]):ReaderFuture[F,B] =
-        readerMonad.flatMap(fa) { ft =>
-          Reader{t =>
-            monad.flatMap(ft) { a =>
-              f(a)(t)
-            }
-          }
-        }
-
-      def pure[A](a:A) =
-        readerMonad.pure(monad.pure(a))
-    }
+//
+//  implicit def readerFutureMonad[F](implicit monad:Monad[Future]):Monad[({type RF[T] = ReaderFuture[F, T]})#RF] =
+//    new Monad[({type RF[T] = ReaderFuture[F, T]})#RF] {
+//
+//      def flatMap[A, B](fa:ReaderFuture[F, A])(f: (A) => ReaderFuture[F,B]):ReaderFuture[F,B] =
+//        readerMonad.flatMap(fa) { ft =>
+//          Reader{t =>
+//            monad.flatMap(ft) { a =>
+//              f(a)(t)
+//            }
+//          }
+//        }
+//
+//      def pure[A](a:A) =
+//        readerMonad.pure(monad.pure(a))
+//    }
 
 //  implicit def readerFutureValidMonad[F,E](implicit monad:Monad[Future]):FMonad[E, ({type RFV[T] = ReaderFutureValid[F,E,T]})#RFV] =
 //    new FMonad[E, ({type RFV[T] = ReaderFutureValid[F,E,T]})#RFV]{

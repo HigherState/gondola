@@ -1,39 +1,41 @@
 package gondola
 
-import cats.data.XorT
+import cats.data.{WriterT, ReaderT, XorT}
 import scala.concurrent.Future
 
 package object std {
 
-  type Id[T] = T
+  type Id[A] = A
 
-  type Valid[E, T] = XorT[Id, E, T]
+  type Valid[E, A] = XorT[Id, E, A]
 
-  type Writer[L, T] = cats.data.WriterT[Id, L, T]
+  type Writer[W, A] = WriterT[Id, W, A]
 
-  type WriterValid[L, E, T] = cats.data.WriterT[Valid[E, ?], L, T]
+  type WriterValid[W, E, A] = WriterT[Valid[E, ?], W, A]
 
-  type IOValid[E, T] = IO[Valid[E, T]]
+  type Reader[R, A] = cats.data.Reader[R, A]
 
-  type IOWriter[L, T] = IO[Writer[L, T]]
+  type ReaderValid[R, E, A] = ReaderT[Valid[E, ?], R, A]
 
-  type IOValidWriter[E, L, T] = IO[Valid[E, Writer[L, T]]]
+  type ReaderWriter[R, W, A] = ReaderT[Writer[W, ?], R, A]
 
-  type ReaderValid[F, E, T] = Reader[F, Valid[E, T]]
+  type ReaderWriterValid[R, W, E, A] = ReaderT[WriterT[Valid[E, ?], W, ?], R, A]
 
-  type ReaderWriter[F, L, T] = Reader[F, Writer[L, T]]
+  type State[S, A] = cats.data.State[S, A]
 
-  type ReaderValidWriter[F, E, L, T] = Reader[F, Valid[E, Writer[L, T]]]
+  type StateValid[S, E, A] = cats.data.StateT[Valid[E, ?], S, A]
+
+  type StateWriter[S, W, A] = cats.data.StateT[Writer[W, ?], S, A]
 
 
-  type FutureValid[E, T] = Future[Valid[E, T]]
+  type FutureValid[E, A] = Future[Valid[E, A]]
 
-  type FutureWriter[L, T] = Future[Writer[L, T]]
+  type FutureWriter[W, A] = Future[Writer[W, A]]
 
-  type ReaderFuture[F, T] = Reader[F, Future[T]]
+  type ReaderFuture[R, A] = ReaderT[Future[?], R, A]
 
-  type ReaderFutureValid[F, E, T] = Reader[F, FutureValid[E, T]]
+  type ReaderFutureValid[R, E, A] = ReaderT[FutureValid[E, ?], R, A]
 
-  type FutureValidWriter[E, L, T] = Future[Valid[E, Writer[L, T]]]
+  type FutureValidWriter[E, W, A] = Future[Valid[E, Writer[W, A]]]
 
 }

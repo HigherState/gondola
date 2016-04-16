@@ -1,11 +1,10 @@
 import akka.actor.{ActorRef, ActorSelection}
+import cats.~>
 
 package object gondola {
   trait TF {
     type I[Y[_]]
   }
-  type ~>![X[_]] = TF { type I[Y[_]] = ~>[Y, X] }
-  type !~>[X[_]] = TF { type I[Y[_]] = ~>[X, Y] }
 
   type EitherActor = Either[ActorRef, ActorSelection]
   type Monad[F[_]] = cats.Monad[F]
