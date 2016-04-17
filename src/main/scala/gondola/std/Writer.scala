@@ -51,6 +51,19 @@ trait WriterMonads[W] {
     def pure[A](x: A): Writer[W, A] =
       WriterT.value[Id,W,A](x)
   }
+
+  implicit val writerTraverse = new Traverse[Writer[W, ?]] {
+    def traverse[G[_], A, B](fa: Writer[W, A])(f: (A) => G[B])(implicit evidence$1: Applicative[G]): G[Writer[W, B]] = {
+      val (w, a) = fa.run
+      evidence$1.map(f(a))(a => writerMonad.writer(w -> a))
+    }
+
+    def foldLeft[A, B](fa: Writer[W, A], b: B)(f: (B, A) => B): B =
+      f(b, fa.run._2)
+
+    def foldRight[A, B](fa: Writer[W, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
+      f(fa.run._2, lb)
+  }
 }
 
 trait WriterTransforms[W] extends WriterMonads[W] with IdTransforms {
@@ -200,6 +213,9 @@ trait WriterStateValidTransforms[W, S, E]
     with WriterStateTransforms[W, S]
     with WriterValidTransforms[W, E]
     with StateValidTransforms[S, E] {
+
+  implicit val id2WriterStateValid:Id ~> WriterStateValid[W, S, E, ?] =
+    toWriterTransform[Id, StateValid[S, E, ?]]
 
   implicit val writer2WriterStateValid:Writer[W, ?] ~> WriterStateValid[W, S, E, ?] =
     fromWriterTransform[Id, StateValid[S, E, ?]]

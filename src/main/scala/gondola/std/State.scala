@@ -70,28 +70,3 @@ trait StateValidTransforms[S, E] extends StateTransforms[S] with StateValidMonad
     toStateTransform[Valid[E, ?], Valid[E, ?]]
 
 }
-
-
-//trait StateWriterMonads[S, W] extends StateMonads[S] with WriterMonads[W] {
-//
-//  implicit val stateWriterMonad:MonadState[StateWriter[S, W, ?], S] with MonadWriter[StateWriter[S, W, ?], W] =
-//    new MonadState[StateWriter[S, W, ?], S] with MonadWriter[StateWriter[S, W, ?], W] {
-//      def get: StateWriter[S, W, S] =
-//        StateT(a => F.pure((a, a)))
-//
-//      def set(s: S): StateWriter[S, W, Unit] = ???
-//
-//      def writer[A](aw: (W, A)): StateWriter[S, W, A] =
-//        StateT[Writer[W, ?], S, A](_ => writerMonad.writer(aw))
-//
-//      def listen[A](fa: StateWriter[S, W, A]): StateWriter[S, W, (W, A)] = ???
-//
-//      def pass[A](fa: StateWriter[S, W, ((W) => W, A)]): StateWriter[S, W, A] = ???
-//
-//      def pure[A](x: A): StateWriter[S, W, A] =
-//        StateT.pure(x)
-//
-//      def flatMap[A, B](fa: StateWriter[S, W, A])(f: (A) => StateWriter[S, W, B]): StateWriter[S, W, B] =
-//        fa.flatMap(f)
-//    }
-//}

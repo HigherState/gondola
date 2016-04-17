@@ -1,7 +1,6 @@
 package gondola
 
 import cats.data.{WriterT, ReaderT, XorT}
-import scala.concurrent.Future
 
 package object std {
 
@@ -30,17 +29,14 @@ package object std {
   type ReaderWriterValid[R, W, E, A] = ReaderT[WriterT[Valid[E, ?], W, ?], R, A]
 
 
+  type FutureWriter[W, A] = FutureT[Writer[W, ?], A]
+
+  type FutureValidWriter[E, W, A] = FutureT[WriterValid[W, E, ?], A]
+
+  //type ReaderFuture[R, A] = ReaderT[Future[?], R, A]
+
+ // type ReaderFutureValid[R, E, A] = ReaderT[FutureValid[E, ?], R, A]
 
 
-
-  type FutureValid[E, A] = Future[Valid[E, A]]
-
-  type FutureWriter[W, A] = Future[Writer[W, A]]
-
-  type ReaderFuture[R, A] = ReaderT[Future[?], R, A]
-
-  type ReaderFutureValid[R, E, A] = ReaderT[FutureValid[E, ?], R, A]
-
-  type FutureValidWriter[E, W, A] = Future[Valid[E, Writer[W, A]]]
 
 }
