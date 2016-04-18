@@ -7,10 +7,10 @@ import gondola.repository._
 
 object AuthenticationCommandHandler {
 
-  def apply[M[_]:VMonad](repository: (KvD[UserLogin, UserCredentials])#I ~> M, maxNumberOfTries:Int) =
+  def apply[M[_]:VMonad](repository: KvD[UserLogin, UserCredentials,?] ~> M, maxNumberOfTries:Int):AuthenticationCommand ~> M =
     new AuthenticationDirectives(repository) with (AuthenticationCommand ~~> M) {
 
-      import VMonad._
+      import MonadError._
 
       def handle[T] = {
         case CreateNewUser(userLogin, password) =>

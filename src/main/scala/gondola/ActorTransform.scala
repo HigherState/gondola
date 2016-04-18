@@ -1,16 +1,18 @@
 package gondola
 
-import cats.data.Reader
-import cats.~>
+import cats.data.{Reader, ReaderT}
+import cats.{Traverse, ~>}
 
 import scala.concurrent.Future
 import akka.actor._
 import akka.util.Timeout
+import gondola.std.FutureT
 
-private class ActorTransform[D[_], R[_]](transform: => D ~> R, name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout)
-  extends ~>[D, ({type I[T] = Future[R[T]]})#I] {
+private class ActorTransform[D[_], R[_]](transform: => D ~> R, name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R])
+  extends (D ~> FutureT[R, ?]) {
 
   import akka.pattern._
+
 
   private val f = () => transform
 
@@ -27,11 +29,11 @@ private class ActorTransform[D[_], R[_]](transform: => D ~> R, name:Option[Strin
   val actorRef = name.fold(af.actorOf(props)){n => af.actorOf(props, n)}
 
   def apply[A](fa: D[A]) =
-    actorRef.ask(fa).asInstanceOf[Future[R[A]]]
+    FutureT[R, A](actorRef.ask(fa).asInstanceOf[Future[R[A]]])(af.dispatcher, M, T)
 }
 
-private class FutureActorTransform[D[_], R[_]](transform: => D ~> ({type I[T] = Future[R[T]]})#I, name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout)
-  extends ~>[D, ({type I[T] = Future[R[T]]})#I] {
+private class FutureActorTransform[D[_], R[_]](transform: => D ~> FutureT[R, ?], name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R])
+  extends (D ~> FutureT[R, ?]) {
   import akka.pattern._
 
   private val f = () => transform
@@ -44,7 +46,7 @@ private class FutureActorTransform[D[_], R[_]](transform: => D ~> ({type I[T] = 
 
         def receive = {
           case d: D[_]@unchecked =>
-            new PipeableFuture(t(d)).pipeTo(sender)
+            new PipeableFuture(t(d).value).pipeTo(sender)
             ()
         }
       }
@@ -52,81 +54,78 @@ private class FutureActorTransform[D[_], R[_]](transform: => D ~> ({type I[T] = 
   val actorRef = name.fold(af.actorOf(props)){n => af.actorOf(props, n)}
 
   def apply[A](fa: D[A]) =
-    actorRef.ask(fa).asInstanceOf[Future[R[A]]]
+    FutureT[R, A](actorRef.ask(fa).asInstanceOf[Future[R[A]]])(af.dispatcher, M, T)
 }
 
-//private class ReaderActorTransform[-D[_], R[_], S](transform: => D ~> ({type I[T] = Reader[S, R[T]]})#I, name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout)
-//  extends ~>[D, ({type I[T] = Reader[S, Future[R[T]]]})#I] {
-//  import akka.pattern._
-//
-//  private val f = () => transform
-//
-//  def props =
-//  ???
-////    Props{
-////      val t = f()
-////      new Actor {
-////        def receive = {
-////          case (d:D[_]@unchecked, s:S@unchecked) =>
-////            sender ! t(d).apply(s)
-////        }
-////      }
-////    }
-//
-////  val actorRef = name.fold(af.actorOf(props)){n => af.actorOf(props, n)}
-//
-////  def apply[A](fa: D[A]) =
-////    Reader((s:S) => actorRef.ask(fa -> s).asInstanceOf[Future[R[A]]])
-//}
+private class ReaderActorTransform[D[_], R[_], S](transform: => D ~> ReaderT[R, S, ?], name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R])
+  extends (D ~> ReaderT[FutureT[R, ?], S, ?]) {
+  import akka.pattern._
 
-private class SelectionTransform[D[_], R[_]](actorSelection:ActorSelection)(implicit af:ActorRefFactory, timeout:Timeout) extends ~>[D, ({type I[T] = Future[R[T]]})#I] {
+  private val f = () => transform
+
+  def props =
+    Props{
+      val t = f()
+      new Actor {
+        def receive = {
+          case (d:D[_]@unchecked, s:S@unchecked) =>
+            sender ! t(d).run(s)
+        }
+      }
+    }
+
+  val actorRef = name.fold(af.actorOf(props)){n => af.actorOf(props, n)}
+
+  def apply[A](fa: D[A]) =
+    ReaderT[FutureT[R, ?], S, A](s => FutureT[R, A](actorRef.ask(fa -> s).asInstanceOf[Future[R[A]]])(af.dispatcher, M ,T))
+}
+
+private class SelectionTransform[D[_], R[_]](actorSelection:ActorSelection)(implicit af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R]) extends (D ~> FutureT[R, ?]) {
   import akka.pattern._
   import af.dispatcher
 
   def apply[A](fa: D[A]) =
-    actorSelection.ask(fa).asInstanceOf[Future[R[A]]]
+    FutureT(actorSelection.ask(fa).asInstanceOf[Future[R[A]]])(af.dispatcher, M, T)
 }
 
-private class ReaderSelectionTransform[D[_], R[_], S](actorSelection:ActorSelection)(implicit af:ActorRefFactory, timeout:Timeout) extends ~>[D, ({type I[T] = Reader[S, Future[R[T]]]})#I] {
+private class ReaderSelectionTransform[D[_], R[_], S](actorSelection:ActorSelection)(implicit af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R]) extends (D ~> ReaderT[FutureT[R, ?], S, ?]) {
   import akka.pattern._
   import af.dispatcher
 
   def apply[A](fa: D[A]) =
-    Reader((s:S) => actorSelection.ask(fa -> s).asInstanceOf[Future[R[A]]])
+    ReaderT[FutureT[R, ?], S, A](s => FutureT[R, A](actorSelection.ask(fa -> s).asInstanceOf[Future[R[A]]])(af.dispatcher, M, T))
 }
 
-//class PropsActorTransform[D[_], R[_], S](transform: => D ~> R, scaffold:Actor => ActorRef)(implicit af:ActorContext, timeout:Timeout) extends ~>[D, ({type I[T] = Future[R[T]]})#I] {
-//
-//}
+
 
 object ActorN {
 
-  def apply[D[_], R[_]](transform: => D ~> R)(implicit af:ActorRefFactory, timeout:Timeout):(D ~> ({type I[T] = Future[R[T]]})#I) =
+  def apply[D[_], R[_]](transform: => D ~> R)(implicit af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R]):D ~> FutureT[R, ?] =
     new ActorTransform[D, R](transform, None)
 
-  def apply[D[_], R[_]](transform: => D ~> R, name:String)(implicit af:ActorRefFactory, timeout:Timeout):(D ~> ({type I[T] = Future[R[T]]})#I) =
+  def apply[D[_], R[_]](transform: => D ~> R, name:String)(implicit af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R]):D ~> FutureT[R, ?] =
     new ActorTransform[D, R](transform, Some(name))
 
-  def selection[D[_], R[_]](actorSelection:ActorSelection)(implicit af:ActorRefFactory, timeout:Timeout): (D ~> ({type I[T] = Future[R[T]]})#I) =
+  def selection[D[_], R[_]](actorSelection:ActorSelection)(implicit af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R]):D ~> FutureT[R, ?] =
     new SelectionTransform[D, R](actorSelection)
 
   object Future {
 
-    def apply[D[_], R[_]](transform: => D ~> ({type I[T] = Future[R[T]]})#I)(implicit af: ActorRefFactory, timeout: Timeout): (D ~> ({type I[T] = Future[R[T]]})#I) =
+    def apply[D[_], R[_]](transform: => D ~> FutureT[R, ?])(implicit af: ActorRefFactory, timeout: Timeout, M:Monad[R], T:Traverse[R]):D ~> FutureT[R, ?] =
       new FutureActorTransform[D, R](transform, None)
 
-    def apply[D[_], R[_]](transform: => D ~> ({type I[T] = Future[R[T]]})#I, name: String)(implicit af: ActorRefFactory, timeout: Timeout): (D ~> ({type I[T] = Future[R[T]]})#I) =
+    def apply[D[_], R[_]](transform: => D ~> FutureT[R, ?], name: String)(implicit af: ActorRefFactory, timeout: Timeout, M:Monad[R], T:Traverse[R]):D ~> FutureT[R, ?] =
       new FutureActorTransform[D, R](transform, Some(name))
   }
 
   object Reader {
-//    def apply[D[_], R[_], S](transform: => D ~> ({type I[T] = Reader[S, R[T]]})#I)(implicit af:ActorRefFactory, timeout:Timeout): (D ~> ({type I[T] = Reader[S, Future[R[T]]]})#I) =
-//      new ReaderActorTransform[D, R, S](transform, None)
-//
-//    def apply[D[_], R[_], S](transform: => D ~> ({type I[T] = Reader[S, R[T]]})#I, name:String)(implicit af:ActorRefFactory, timeout:Timeout): (D ~> ({type I[T] = Reader[S, Future[R[T]]]})#I) =
-//      new ReaderActorTransform[D, R, S](transform, Some(name))
+    def apply[D[_], R[_], S](transform: => D ~> ReaderT[R, S, ?])(implicit af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R]): D ~> ReaderT[FutureT[R, ?], S, ?] =
+      new ReaderActorTransform[D, R, S](transform, None)
 
-    def selection[D[_], R[_], S](actorSelection:ActorSelection)(implicit af:ActorRefFactory, timeout:Timeout): ~>[D, ({type I[T] = Reader[S, Future[R[T]]]})#I] =
+    def apply[D[_], R[_], S](transform: => D ~> ReaderT[R, S, ?], name:String)(implicit af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R]):D ~> ReaderT[FutureT[R, ?], S, ?] =
+      new ReaderActorTransform[D, R, S](transform, Some(name))
+
+    def selection[D[_], R[_], S](actorSelection:ActorSelection)(implicit af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R]): D ~> ReaderT[FutureT[R, ?], S, ?] =
       new ReaderSelectionTransform[D, R, S](actorSelection)
   }
 }

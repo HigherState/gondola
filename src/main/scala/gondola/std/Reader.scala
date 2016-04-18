@@ -1,7 +1,9 @@
 package gondola.std
 
-import cats.{Monad, ~>, MonadError, MonadReader}
+import cats.{Monad, MonadError, MonadReader, ~>}
 import cats.data._
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object Reader {
   def apply[A, B](f: A => B): Reader[A, B] =
@@ -38,22 +40,34 @@ trait ReaderTransforms[R] extends ReaderMonads[R] with IdTransforms {
     identity[Reader[R, ?]]
 }
 
+private sealed abstract class MonadReaderImpl[F[_], R](implicit val M:Monad[F]) extends MonadReader[ReaderT[F, R, ?], R] {
+  def ask: ReaderT[F, R, R] =
+    Kleisli[F, R, R](M.pure)
+
+  def local[A](f: (R) => R)(fa: ReaderT[F, R, A]): ReaderT[F, R, A] =
+    Kleisli[F, R, A](f.andThen(fa.run))
+
+  def pure[A](x: A): ReaderT[F, R, A] =
+    Kleisli.pure[F, R, A](x)(M)
+
+  def flatMap[A, B](fa: ReaderT[F, R, A])(f: (A) => ReaderT[F, R, B]): ReaderT[F, R, B] =
+    fa.flatMap(f)
+}
+
+private sealed abstract class MonadReaderErrorImpl[F[_], R, E](implicit override val M:MonadError[F, E]) extends MonadReaderImpl[F, R]()(M) with MonadError[ReaderT[F, R, ?], E] {
+
+  def raiseError[A](e: E): ReaderT[F, R, A] =
+    Kleisli[F, R, A](_ => M.raiseError[A](e))
+
+  def handleErrorWith[A](fa: ReaderT[F, R, A])(f: (E) => ReaderT[F, R, A]): ReaderT[F, R, A] =
+    Kleisli[F, R, A](r => M.handleErrorWith(fa.run(r))(e => f(e).run(r)))
+
+}
+
 trait ReaderWriterMonads[R, W] extends ReaderMonads[R] with WriterMonads[W] {
 
   implicit val readerWriterMonad:MonadReader[ReaderWriter[R, W, ?], R] with MonadWriter[ReaderWriter[R, W, ?], W] =
-    new MonadReader[ReaderWriter[R, W, ?], R] with MonadWriter[ReaderWriter[R, W, ?], W] {
-
-      def ask: ReaderWriter[R, W, R] =
-        Kleisli[Writer[W, ?], R, R](writerMonad.pure)
-
-      def local[A](f: (R) => R)(fa: ReaderWriter[R, W, A]): ReaderWriter[R, W, A] =
-        Kleisli[Writer[W, ?], R, A](f.andThen(fa.run))
-
-      def pure[A](x: A): ReaderWriter[R, W, A] =
-        Kleisli.pure[Writer[W, ?], R, A](x)
-
-      def flatMap[A, B](fa: ReaderWriter[R, W, A])(f: (A) => ReaderWriter[R, W, B]): ReaderWriter[R, W, B] =
-        fa.flatMap(f)
+    new MonadReaderImpl[Writer[W, ?], R] with MonadWriter[ReaderWriter[R, W, ?], W] {
 
       def writer[A](aw: (W, A)): ReaderWriter[R, W, A] =
         Kleisli[Writer[W, ?], R, A](_ => writerMonad.writer(aw))
@@ -84,25 +98,7 @@ trait ReaderWriterTransforms[R, W] extends ReaderTransforms[R] with WriterTransf
 trait ReaderValidMonads[R, E] extends ReaderMonads[R] with ValidMonads[E] {
 
   implicit val readerValidMonad:MonadReader[ReaderValid[R, E, ?], R] with MonadError[ReaderValid[R, E, ?], E] =
-    new MonadReader[ReaderValid[R, E, ?], R] with MonadError[ReaderValid[R, E, ?], E] {
-      def ask: ReaderValid[R, E, R] =
-        Kleisli[Valid[E, ?], R, R](validMonad.pure)
-
-      def local[A](f: (R) => R)(fa: ReaderValid[R, E, A]): ReaderValid[R, E, A] =
-        Kleisli[Valid[E, ?], R, A](f.andThen(fa.run))
-
-      def handleErrorWith[A](fa: ReaderValid[R, E, A])(f: (E) => ReaderValid[R, E, A]): ReaderValid[R, E, A] =
-        Kleisli[Valid[E, ?], R, A](r => validMonad.handleErrorWith(fa.run(r))(e => f(e).run(r)))
-
-      def raiseError[A](e: E): ReaderValid[R, E, A] =
-        Kleisli[Valid[E, ?], R, A](_ => validMonad.raiseError[A](e))
-
-      def pure[A](x: A): ReaderValid[R, E, A] =
-        Kleisli.pure[Valid[E, ?], R, A](x)
-
-      def flatMap[A, B](fa: ReaderValid[R, E, A])(f: (A) => ReaderValid[R, E, B]): ReaderValid[R, E, B] =
-        fa.flatMap(f)
-    }
+    new MonadReaderErrorImpl[Valid[E, ?], R, E] with MonadError[ReaderValid[R, E, ?], E]
 }
 
 trait ReaderValidTransforms[R, E] extends ReaderTransforms[R] with ValidTransforms[E] with ReaderValidMonads[R, E] {
@@ -120,15 +116,31 @@ trait ReaderValidTransforms[R, E] extends ReaderTransforms[R] with ValidTransfor
     toReaderTransform[Valid[E, ?], Valid[E, ?]]
 }
 
+trait ReaderFutureMonads[R] extends ReaderMonads[R] with FutureMonads {
+
+  implicit def readerFutureMonad(implicit ec:ExecutionContext):MonadReader[ReaderFuture[R, ?], R] with MonadError[ReaderFuture[R, ?], Throwable]
+    = new MonadReaderErrorImpl[Future, R, Throwable] with MonadError[ReaderFuture[R, ?], Throwable]
+}
+
+trait ReaderFutureTransforms[R] extends ReaderFutureMonads[R] with ReaderTransforms[R] with FutureTransfoms {
+
+  implicit def id2ReaderFuture(implicit ec:ExecutionContext):Id ~> ReaderFuture[R, ?] =
+    toReaderTransform[Id, Future]
+
+  implicit def reader2ReaderFuture(implicit ec:ExecutionContext):Reader[R, ?] ~> ReaderFuture[R, ?] =
+    fromReaderTransform[Id, Future]
+
+  implicit def future2ReaderFuture(implicit ec:ExecutionContext):Future ~> ReaderFuture[R, ?] =
+    toReaderTransform[Future, Future]
+
+  implicit val readerFuture2ReaderFuture:ReaderFuture[R,?] ~> ReaderFuture[R, ?] =
+    identity[ReaderFuture[R, ?]]
+}
+
 trait ReaderWriterValidMonads[R, W, E] extends ReaderWriterMonads[R, W] with ReaderValidMonads[R, E] with WriterValidMonads[W, E] {
 
   implicit val readerWriterValidMonad:MonadReader[ReaderWriterValid[R, W, E, ?], R] with MonadWriter[ReaderWriterValid[R, W, E, ?], W] with MonadError[ReaderWriterValid[R, W, E, ?], E] =
-    new MonadReader[ReaderWriterValid[R, W, E, ?], R] with MonadWriter[ReaderWriterValid[R, W, E, ?], W] with MonadError[ReaderWriterValid[R, W, E, ?], E] {
-      def ask: ReaderWriterValid[R, W, E, R] =
-        Kleisli[WriterValid[W, E, ?], R, R](writerValidMonad.pure)
-
-      def local[A](f: (R) => R)(fa: ReaderWriterValid[R, W, E, A]): ReaderWriterValid[R, W, E, A] =
-        Kleisli[WriterValid[W, E, ?], R, A](f.andThen(fa.run))
+    new MonadReaderErrorImpl[WriterValid[W, E, ?], R, E] with MonadWriter[ReaderWriterValid[R, W, E, ?], W] with MonadError[ReaderWriterValid[R, W, E, ?], E] {
 
       def listen[A](fa: ReaderWriterValid[R, W, E, A]): ReaderWriterValid[R, W, E, (W, A)] =
         Kleisli[WriterValid[W, E, ?], R, (W, A)](r => writerValidMonad.listen(fa.run(r)))
@@ -138,18 +150,6 @@ trait ReaderWriterValidMonads[R, W, E] extends ReaderWriterMonads[R, W] with Rea
 
       def pass[A](fa: ReaderWriterValid[R, W, E, ((W) => W, A)]): ReaderWriterValid[R, W, E, A] =
         Kleisli[WriterValid[W, E, ?], R, A](r => writerValidMonad.pass(fa.run(r)))
-
-      def raiseError[A](e: E): ReaderWriterValid[R, W, E, A] =
-        Kleisli[WriterValid[W, E, ?], R, A](_ => writerValidMonad.raiseError(e))
-
-      def handleErrorWith[A](fa: ReaderWriterValid[R, W, E, A])(f: (E) => ReaderWriterValid[R, W, E, A]): ReaderWriterValid[R, W, E, A] =
-        Kleisli[WriterValid[W, E, ?], R, A](r => writerValidMonad.handleErrorWith(fa.run(r))(e => f(e).run(r)))
-
-      def flatMap[A, B](fa: ReaderWriterValid[R, W, E, A])(f: (A) => ReaderWriterValid[R, W, E, B]): ReaderWriterValid[R, W, E, B] =
-        fa.flatMap(f)
-
-      def pure[A](x: A): ReaderWriterValid[R, W, E, A] =
-        Kleisli.pure[WriterValid[W, E, ?], R, A](x)
     }
 }
 
@@ -183,6 +183,12 @@ trait ReaderWriterValidTransforms[R, W, E]
   implicit val readerWriterValid2ReaderWriterValid:ReaderWriterValid[R, W, E, ?] ~> ReaderWriterValid[R, W, E, ?] =
     identity[ReaderWriterValid[R, W, E, ?]]
 
+}
+
+trait ReaderFutureValidMonads[R, E] extends ReaderFutureMonads[R] with ReaderValidMonads[R, E] with FutureValidMonads[E] {
+
+  implicit def readerFutureValidMonad(implicit ec:ExecutionContext):MonadReader[ReaderFutureValid[R, E, ?], R] with MonadError[ReaderFutureValid[R, E, ?], E] =
+    new MonadReaderErrorImpl[FutureValid[E, ?], R, E] with MonadError[ReaderFutureValid[R, E, ?], E]
 }
 
 

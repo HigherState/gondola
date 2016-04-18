@@ -1,12 +1,8 @@
 package gondola
 
 import cats.Functor.ToFunctorOps
-import cats.Monad.ToMonadOps
-import cats.data.NonEmptyList
 import cats.std.list._
-import cats.syntax.{FunctorSyntax, TraverseSyntax, FlatMapSyntax}
-
-//import cats.syntax.traverse._
+import cats.syntax.{FlatMapSyntax, TraverseSyntax}
 
 
 trait OptionOps {
@@ -37,10 +33,10 @@ trait OptionOps {
 
 trait MonadOps {
 
-  def pure[M[_], T](t: => T)(implicit monad:Monad[M]):M[T] =
+  def pure[F[_], T](t: => T)(implicit monad:Monad[F]):F[T] =
     monad.pure(t)
 
-  def sequence[M[_], T](l:List[M[T]])(implicit monad:Monad[M]):M[List[T]] =
+  def sequence[F[_], T](l:List[F[T]])(implicit monad:Monad[F]):F[List[T]] =
     monad.sequence(l)
 
   implicit class SeqMonad[M[_], A](in: Seq[M[A]])(implicit monad: Monad[M]) {
@@ -50,60 +46,67 @@ trait MonadOps {
   }
 }
 
+trait MonadErrorOps extends MonadOps {
+
+  def raiseError[F[_], E, A](e:E)(implicit M:cats.MonadError[F, E]):F[A] =
+    M.raiseError(e)
+
+  def handleErrorWith[F[_], E, A](fa: F[A])(f: E => F[A])(implicit M:cats.MonadError[F, E]): F[A] =
+    M.handleErrorWith(fa)(f)
+
+  def handleError[F[_], E, A](fa: F[A])(f: E => A)(implicit M:cats.MonadError[F, E]): F[A] =
+    handleErrorWith(fa)(f andThen M.pure)
+
+  def recover[F[_], E, A](fa: F[A])(pf: PartialFunction[E, A])(implicit M:cats.MonadError[F, E]): F[A] =
+    M.recover(fa)(pf)
+
+  def recoverWith[F[_], E, A](fa: F[A])(pf: PartialFunction[E, F[A]])(implicit M:cats.MonadError[F, E]): F[A] =
+    M.recoverWith(fa)(pf)
+
+}
+
+trait MonadWriterOps extends MonadOps {
+  def writer[F[_], W, A](aw: (W, A))(implicit M:std.MonadWriter[F, W]): F[A] =
+    M.writer(aw)
+
+  def listen[F[_], W, A](fa: F[A])(implicit M:std.MonadWriter[F, W]): F[(W, A)] =
+    M.listen(fa)
+
+  def pass[F[_], W, A](fa: F[(W => W, A)])(implicit M:std.MonadWriter[F, W]): F[A] =
+    M.pass(fa)
+
+  def tell[F[_], W](w: W)(implicit M:std.MonadWriter[F, W]): F[Unit] =
+    M.tell(w)
+
+  def listens[F[_], W, A, B](fa: F[A])(f: W => B)(implicit M:std.MonadWriter[F, W]): F[(B, A)] =
+    M.listens(fa)(f)
+
+  def censor[F[_], W, A](fa: F[A])(f: W => W)(implicit M:std.MonadWriter[F, W]): F[A] =
+    M.censor(fa)(f)
+}
+
+trait MonadReaderOps extends MonadOps {
+
+  def ask[F[_], R](implicit M:cats.MonadReader[F, R]): F[R] =
+    M.ask
+
+  /** Modify the environment */
+  def local[F[_], R, A](f: R => R)(fa: F[A])(implicit M:cats.MonadReader[F, R]): F[A] =
+    M.local(f)(fa)
+}
+
+
+
 object Monad extends MonadOps with FlatMapSyntax with OptionOps with TraverseSyntax with ToFunctorOps
 
+object MonadError extends MonadErrorOps with FlatMapSyntax with OptionOps with TraverseSyntax with ToFunctorOps
 
-trait FMonad[E, M[_]] extends Monad[M] {
+object MonadReader extends MonadReaderOps with FlatMapSyntax with OptionOps with TraverseSyntax with ToFunctorOps
 
-  def failure(validationFailure: => E):M[Nothing]
+object MonadWriter extends MonadWriterOps with FlatMapSyntax with OptionOps with TraverseSyntax with ToFunctorOps
 
-  def failures(validationFailures: => NonEmptyList[E]):M[Nothing]
-
-  def onFailure[T](value:M[T])(f:NonEmptyList[E] => M[T]):M[T]
-}
-
-trait PipeFMonad {
-
-  implicit class FailureMonad[M[_], E, A](M:M[A])(implicit monad: FMonad[E, M]) {
-    def onFailure(f:NonEmptyList[E] => M[A]):M[A] =
-      monad.onFailure[A](M)(f)
-  }
-}
-
-trait FMonadOps extends MonadOps {
-  def failure[E, M[_], T](validationFailure: => E)(implicit fmonad:FMonad[E, M]):M[T] =
-    fmonad.failures(NonEmptyList(validationFailure)).asInstanceOf[M[T]]
-
-  def failures[E, M[_], T](validationFailures: => NonEmptyList[E])(implicit fmonad:FMonad[E, M]):M[T] =
-    fmonad.failures(validationFailures).asInstanceOf[M[T]]
-}
-
-object FMonad extends PipeFMonad with FMonadOps with ToMonadOps with OptionOps
-
-trait WMonad[L, M[_]] extends Monad[M] {
-
-  def write(log:L):M[Ack] =
-    write(log, Acknowledged)
-
-  def write[T](log:L, value:T):M[T]
-}
-
-trait WMonadOps extends MonadOps {
-
-  def write[L, M[_]](log: => L)(implicit wmonad:WMonad[L, M]):M[Ack] =
-    wmonad.write(log)
-}
-
-trait FWMonad[E, L, M[_]] extends FMonad[E, M] with WMonad[L, M]
+object MonadWriterError extends MonadWriterOps with MonadErrorOps with FlatMapSyntax with OptionOps with TraverseSyntax with ToFunctorOps
 
 
-trait MonadErrorOps {
-
-  def raiseError[M[_], E, A](e:E)(implicit m:cats.MonadError[M, E]):M[A] =
-    m.raiseError(e)
-
-}
-
-object MonadError extends MonadErrorOps
 
 

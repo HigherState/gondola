@@ -3,10 +3,12 @@ package gondola.repository
 import gondola._
 import java.util.concurrent.atomic.AtomicReference
 
+import cats.~>
+
 object InMemoryKeyValueQueryExecutor {
 
-  def apply[M[_]:Monad, Key, Value](state:AtomicReference[Map[Key, Value]]) =
-  new (KvQ[Key, Value]#I ~~> M) {
+  def apply[M[_]:Monad, Key, Value](state:AtomicReference[Map[Key, Value]]):KvQ[Key, Value, ?] ~> M =
+  new (KvQ[Key, Value, ?] ~~> M) {
     import Monad._
 
     def handle[T] = {

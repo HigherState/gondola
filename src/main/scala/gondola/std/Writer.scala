@@ -1,7 +1,7 @@
 package gondola.std
 
 import cats._
-import cats.data.WriterT
+import cats.data.{WriterT, Xor}
 
 object Writer {
   def apply[W, A](a:A)(implicit monoid:Monoid[W]) =
@@ -52,7 +52,7 @@ trait WriterMonads[W] {
       WriterT.value[Id,W,A](x)
   }
 
-  implicit val writerTraverse = new Traverse[Writer[W, ?]] {
+  implicit val writerTraverse:Traverse[Writer[W, ?]] = new Traverse[Writer[W, ?]] {
     def traverse[G[_], A, B](fa: Writer[W, A])(f: (A) => G[B])(implicit evidence$1: Applicative[G]): G[Writer[W, B]] = {
       val (w, a) = fa.run
       evidence$1.map(f(a))(a => writerMonad.writer(w -> a))
@@ -113,6 +113,22 @@ trait WriterValidMonads[W, E] extends WriterMonads[W] with ValidMonads[E] {
 
     def pass[A](fa: WriterValid[W, E, ((W) => W, A)]): WriterValid[W, E, A] =
       cats.data.WriterT[Valid[E,?],W, A](fa.run.map{ case (l, (f, a)) => f(l) -> a})
+  }
+
+  implicit val writerValidTraverse:Traverse[WriterValid[W, E, ?]] = new Traverse[WriterValid[W, E, ?]] {
+    def traverse[G[_], A, B](fa: WriterValid[W, E, A])(f: (A) => G[B])(implicit A: Applicative[G]): G[WriterValid[W, E, B]] =
+      fa.run.value match {
+        case Xor.Left(_) =>
+          A.pure(fa.asInstanceOf[WriterValid[W, E, B]])
+        case Xor.Right((w, a)) =>
+          A.map(f(a))(r => writerValidMonad.writer(w -> r))
+      }
+
+    def foldLeft[A, B](fa: WriterValid[W, E, A], b: B)(f: (B, A) => B): B =
+      fa.run.foldLeft(b)( (c, p) => f(c, p._2))
+
+    def foldRight[A, B](fa: WriterValid[W, E, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
+      fa.run.foldRight(lb)( (c, p) => f(c._2, p))
   }
 }
 

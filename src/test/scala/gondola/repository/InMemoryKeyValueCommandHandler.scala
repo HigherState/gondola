@@ -1,12 +1,14 @@
 package gondola.repository
 
 import java.util.concurrent.atomic.AtomicReference
+
+import cats.~>
 import gondola._
 
 object InMemoryKeyValueCommandHandler {
 
-  def apply[M[_]:Monad, Key, Value](state:AtomicReference[Map[Key, Value]]) =
-    new (KvC[Key,Value]#I ~~> M) {
+  def apply[M[_]:Monad, Key, Value](state:AtomicReference[Map[Key, Value]]):KvC[Key,Value, ?] ~> M =
+    new (KvC[Key,Value, ?] ~~> M) {
 
       import Monad._
 

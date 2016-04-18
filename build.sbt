@@ -2,7 +2,7 @@ name := "gondola"
 
 organization := "org.higherState"
 
-version := "1.0.1"
+version := "2.0.0"
 
 scalaVersion := "2.11.8"
 
@@ -31,7 +31,7 @@ libraryDependencies ++= Seq(
   "org.scala-lang" % "scala-compiler" % "2.11.8",
   "org.scala-lang.modules" %% "scala-xml" % "1.0.5",
   "org.typelevel" %% "cats" % "0.4.1",
-  "com.typesafe.akka" %% "akka-actor" % "2.4.3",
+  "com.typesafe.akka" %% "akka-actor" % "2.4.4",
   "com.chuusai" %% "shapeless" % "2.3.0",
   "org.scalatest" %% "scalatest" % "2.2.1" % "test"
 )

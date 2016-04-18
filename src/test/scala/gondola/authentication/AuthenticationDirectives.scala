@@ -1,18 +1,19 @@
 package gondola.authentication
 
+import cats.data.NonEmptyList
 import cats.~>
 import gondola.repository._
 import gondola._
 
 abstract class AuthenticationDirectives[M[_]:VMonad]
-  (repository: (KvD[UserLogin, UserCredentials])#I ~> M) {
+  (repository:KvD[UserLogin, UserCredentials, ?] ~> M) {
 
-  import VMonad._
+  import MonadError._
 
   protected def withValidUniqueLogin[T](userLogin:UserLogin)(f: => M[T]):M[T] =
     repository(Get(userLogin)).flatMap {
       case Some(uc) =>
-        failure("UserCredentialsAlreadyExistFailure(userLogin)")
+        raiseError(NonEmptyList("UserCredentialsAlreadyExistFailure(userLogin)"))
       case _ =>
         f
     }
@@ -22,7 +23,7 @@ abstract class AuthenticationDirectives[M[_]:VMonad]
       case Some(uc) =>
         f(uc)
       case None =>
-        failure("UserCredentialsNotFoundFailure(userLogin)")
+        raiseError(NonEmptyList("UserCredentialsNotFoundFailure(userLogin)"))
     }
 
   protected def withRequiredAuthenticatedCredentials[T](userLogin:UserLogin, password:Password)(f:UserCredentials => M[T]):M[T] =
@@ -31,7 +32,7 @@ abstract class AuthenticationDirectives[M[_]:VMonad]
         f(uc)
       else {
         //Event publisher, publish failure of authentication
-        failure("InvalidPasswordFailure(userLogin)")
+        raiseError(NonEmptyList("InvalidPasswordFailure(userLogin)"))
       }
     }
 }

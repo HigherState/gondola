@@ -1,12 +1,16 @@
 package gondola.std
 
-import cats.{Eval, ~>, MonadError}
+import cats.data.XorT
+import cats.{Eval, MonadError, ~>}
 
 
-trait ValidMonads[E] {
+trait ValidMonads[E] extends IdTransforms {
 
   implicit val validMonad:MonadError[Valid[E, ?], E] =
     cats.data.XorT.xorTMonadError[Id, E](cats.Id)
+
+  implicit val validTraverse = XorT.xorTTraverse[Id, E]
+
 }
 
 trait ValidTransforms[E] extends ValidMonads[E] with IdTransforms {

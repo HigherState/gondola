@@ -1,21 +1,22 @@
 package gondola.authentication
 
 import cats.~>
+import cats.data.NonEmptyList
 import gondola._
 import gondola.repository._
 
 object AuthenticationQueryExecutor {
 
-  def apply[M[_]:VMonad](repository: (KvD[UserLogin, UserCredentials])#I ~> M) =
+  def apply[M[_]:VMonad](repository:KvD[UserLogin, UserCredentials, ?] ~> M):AuthenticationQuery ~> M =
     new AuthenticationDirectives(repository) with (AuthenticationQuery ~~> M) {
 
-      import VMonad._
+      import MonadError._
 
       def handle[T] = {
         case Authenticate(userLogin, password) =>
           withRequiredAuthenticatedCredentials(userLogin, password) {
             case UserCredentials(actualUserLogin, _, true, _) =>
-              failure("UserLockedFailure(actualUserLogin)")
+              raiseError(NonEmptyList("UserLockedFailure(actualUserLogin)"))
             case UserCredentials(actualUserLogin, _, _, _) =>
               pure(actualUserLogin)
           }
