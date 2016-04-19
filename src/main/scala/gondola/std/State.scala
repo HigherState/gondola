@@ -2,6 +2,7 @@ package gondola.std
 
 import cats._
 import cats.data._
+import gondola.{StateTransformation, ~>}
 
 trait StateMonads[S] {
   implicit val stateMonad:MonadState[State[S, ?], S] =
@@ -27,8 +28,13 @@ trait StateTransforms[S] extends StateMonads[S] with IdTransforms {
 
   implicit val state2State: State[S, ?] ~> State[S, ?] =
     identity[State[S, ?]]
-}
 
+  implicit val state2Id: StateTransformation[State[S, ?], Id, S] =
+    new StateTransformation[State[S, ?], Id, S] {
+      def apply[A](fa: State[S, A], s: S): Id[(S, A)] =
+        fa.run(s).value
+    }
+}
 
 
 trait StateValidMonads[S, E] extends StateMonads[S] with ValidMonads[E] {
@@ -69,4 +75,9 @@ trait StateValidTransforms[S, E] extends StateTransforms[S] with StateValidMonad
   implicit val valid2StateValid:Valid[E, ?] ~> StateValid[S, E, ?] =
     toStateTransform[Valid[E, ?], Valid[E, ?]]
 
+  implicit val state2Valid: StateTransformation[StateValid[S, E, ?], Valid[E, ?], S] =
+    new StateTransformation[StateValid[S, E, ?], Valid[E, ?], S] {
+      def apply[A](fa: StateValid[S, E, A], s: S): Valid[E, (S, A)] =
+        fa.run(s)
+    }
 }

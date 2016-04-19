@@ -1,29 +1,26 @@
 package gondola.repository
 
 import gondola._
-import java.util.concurrent.atomic.AtomicReference
-
-import cats.~>
+import cats.data.Reader
 
 object InMemoryKeyValueQueryExecutor {
 
-  def apply[M[_]:Monad, Key, Value](state:AtomicReference[Map[Key, Value]]):KvQ[Key, Value, ?] ~> M =
-  new (KvQ[Key, Value, ?] ~~> M) {
-    import Monad._
+  def apply[Key, Value]:KvQ[Key, Value, ?] ~> Reader[Map[Key, Value], ?] =
+    new (KvQ[Key, Value, ?] ~~> Reader[Map[Key, Value], ?]) {
 
-    def handle[T] = {
-      case Contains(key) =>
-        pure(state.get().contains(key))
+      def handle[T] = {
+        case Contains(key) =>
+          Reader[Map[Key, Value], T](_.contains(key))
 
-      case Get(key) =>
-        pure(state.get().get(key))
+        case Get(key) =>
+          Reader[Map[Key, Value], T](_.get(key))
 
-      case Iterator() =>
-        pure(state.get().iterator)
+        case Iterator() =>
+          Reader[Map[Key, Value], T](_.iterator)
 
-      case Values() =>
-        pure(state.get().valuesIterator)
+        case Values() =>
+          Reader[Map[Key, Value], T](_.values)
+      }
     }
-  }
 
 }

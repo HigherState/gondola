@@ -1,6 +1,4 @@
 import akka.actor.{ActorRef, ActorSelection}
-import cats.arrow.NaturalTransformation
-import cats.~>
 
 package object gondola {
   trait TF {
@@ -26,8 +24,4 @@ package object gondola {
       nt(self)
   }
 
-  implicit class NaturalTransformExt[M[_], N[_]](val self: NaturalTransformation[M,N]) extends AnyVal {
-    def >>>[N2[_]](implicit nt:N ~> N2) =
-      self.andThen(nt)
-  }
 }

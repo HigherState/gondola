@@ -1,7 +1,8 @@
 package gondola.std
 
 import cats.data.XorT
-import cats.{Eval, MonadError, ~>}
+import cats.{Eval, MonadError}
+import gondola.~>
 
 
 trait ValidMonads[E] extends IdTransforms {

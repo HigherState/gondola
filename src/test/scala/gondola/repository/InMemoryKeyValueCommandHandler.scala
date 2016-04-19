@@ -1,24 +1,20 @@
 package gondola.repository
 
-import java.util.concurrent.atomic.AtomicReference
-
-import cats.~>
+import cats.data.State
 import gondola._
 
 object InMemoryKeyValueCommandHandler {
 
-  def apply[M[_]:Monad, Key, Value](state:AtomicReference[Map[Key, Value]]):KvC[Key,Value, ?] ~> M =
-    new (KvC[Key,Value, ?] ~~> M) {
+  def apply[Key, Value]:KvC[Key,Value, ?] ~> State[Map[Key, Value], ?] =
+    new (KvC[Key,Value, ?] ~~> State[Map[Key, Value], ?]) {
 
       import Monad._
 
       def handle[T] = {
         case Add(kv) =>
-          state.set(state.get() + kv)
-          acknowledged
-        case Remove(key) =>
-          state.set(state.get() - key)
-          acknowledged
+          State[Map[Key, Value], Ack](s => ((s + kv), Acknowledged))
+        case Remove(key:Key) =>
+          State[Map[Key, Value], Ack](s => ((s - key),Acknowledged))
       }
     }
 }

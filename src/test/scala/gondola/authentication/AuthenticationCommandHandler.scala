@@ -1,6 +1,5 @@
 package gondola.authentication
 
-import cats.~>
 import gondola.Monad._
 import gondola._
 import gondola.repository._

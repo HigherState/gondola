@@ -2,6 +2,7 @@ package gondola.std
 
 import cats._
 import cats.data.{WriterT, Xor}
+import gondola.{StateTransformation, WriterTransformation, ~>}
 
 object Writer {
   def apply[W, A](a:A)(implicit monoid:Monoid[W]) =
@@ -68,16 +69,22 @@ trait WriterMonads[W] {
 
 trait WriterTransforms[W] extends WriterMonads[W] with IdTransforms {
 
-  def toWriterTransform[M[_], N[_]](implicit monad:Monad[N], transform:M ~> N): M ~> WriterT[N, W, ?] =
+  protected def toWriterTransform[M[_], N[_]](implicit monad:Monad[N], transform:M ~> N): M ~> WriterT[N, W, ?] =
     new (M ~> WriterT[N, W, ?]) {
       def apply[A](fa: M[A]): WriterT[N, W, A] =
         cats.data.WriterT[N, W, A](monad.map(transform(fa))(empty -> _))
     }
 
-  def fromWriterTransform[M[_], N[_]](implicit monad:MonadWriter[WriterT[N, W, ?], W], transform:M ~> N): WriterT[M, W, ?] ~> WriterT[N, W, ?] =
+  protected def fromWriterTransform[M[_], N[_]](implicit monad:MonadWriter[WriterT[N, W, ?], W], transform:M ~> N): WriterT[M, W, ?] ~> WriterT[N, W, ?] =
     new (WriterT[M, W, ?] ~> WriterT[N, W, ?]) {
       def apply[A](fa: WriterT[M, W, A]): WriterT[N, W, A] =
         cats.data.WriterT[N,W,A](transform(fa.run))
+    }
+
+  protected def dropWriter[M[_]]:WriterTransformation[WriterT[M, W, ?], M, W] =
+    new WriterTransformation[WriterT[M, W, ?], M, W] {
+      def apply[A](fa: WriterT[M, W, A]): M[(W, A)] =
+        fa.run
     }
 
   implicit val id2Writer: Id ~> Writer[W, ?] =
@@ -85,6 +92,9 @@ trait WriterTransforms[W] extends WriterMonads[W] with IdTransforms {
 
   implicit val writer2Writer: Writer[W, ?] ~> Writer[W, ?] =
     identity[Writer[W, ?]]
+
+  implicit val writer2id: WriterTransformation[Writer[W, ?], Id, W] =
+    dropWriter[Id]
 }
 
 
@@ -130,6 +140,7 @@ trait WriterValidMonads[W, E] extends WriterMonads[W] with ValidMonads[E] {
     def foldRight[A, B](fa: WriterValid[W, E, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
       fa.run.foldRight(lb)( (c, p) => f(c._2, p))
   }
+
 }
 
 trait WriterValidTransforms[W, E] extends WriterTransforms[W] with ValidTransforms[E] with WriterValidMonads[W, E] {
@@ -145,6 +156,9 @@ trait WriterValidTransforms[W, E] extends WriterTransforms[W] with ValidTransfor
 
   implicit val valid2writerValid:Valid[E, ?] ~> WriterValid[W, E, ?] =
     toWriterTransform[Valid[E, ?], Valid[E, ?]]
+
+  implicit val writerValid2Valid: WriterTransformation[WriterValid[W, E, ?], Valid[E, ?], W] =
+    dropWriter[Valid[E, ?]]
 }
 
 trait WriterStateMonads[W, S] extends WriterMonads[W] with StateMonads[S] {
@@ -173,6 +187,7 @@ trait WriterStateMonads[W, S] extends WriterMonads[W] with StateMonads[S] {
       def flatMap[A, B](fa: WriterState[W, S, A])(f: (A) => WriterState[W, S, B]): WriterState[W, S, B] =
         fa.flatMap(f)
     }
+
 }
 
 trait WriterStateTransforms[W, S] extends WriterStateMonads[W, S] with WriterTransforms[W] with StateTransforms[S] {
@@ -188,6 +203,17 @@ trait WriterStateTransforms[W, S] extends WriterStateMonads[W, S] with WriterTra
 
   implicit val valid2WriterState:State[S, ?] ~> WriterState[W, S, ?] =
     toWriterTransform[State[S, ?], State[S, ?]]
+
+  implicit val writerState2Writer: StateTransformation[WriterState[W, S, ?], Writer[W, ?], S] =
+    new StateTransformation[WriterState[W, S, ?], Writer[W, ?], S] {
+      def apply[A](fa: WriterState[W, S, A], s: S): Writer[W, (S, A)] = {
+        val (ns, (w, a)) = fa.run.run(s).value
+        writerMonad.writer(w -> (ns -> a))
+      }
+    }
+
+  implicit val writerState2State:WriterTransformation[WriterState[W, S, ?], State[S, ?], W] =
+    dropWriter[State[S, ?]]
 }
 
 trait WriterStateValidMonads[W, S, E] extends WriterStateMonads[W, S] with WriterValidMonads[W, E] with StateValidMonads[S, E] {
@@ -253,5 +279,14 @@ trait WriterStateValidTransforms[W, S, E]
 
   implicit val writerStateValid2WriterStateValid:WriterStateValid[W, S, E, ?] ~> WriterStateValid[W, S, E, ?] =
     identity[WriterStateValid[W, S, E, ?]]
+
+  implicit val writerStateValid2StateValid: StateTransformation[WriterStateValid[W, S, E, ?], WriterValid[W, E, ?], S] =
+    new StateTransformation[WriterStateValid[W, S, E, ?], WriterValid[W, E, ?], S] {
+      def apply[A](fa: WriterStateValid[W, S, E, A], s: S): WriterValid[W, E, (S, A)] =
+        WriterT[Valid[E, ?], W, (S, A)](fa.run.run(s).map(f => f._2._1 -> (f._1 -> f._2._2)))
+    }
+
+  implicit val writerValidState2ValidState:WriterTransformation[WriterStateValid[W, S, E, ?], StateValid[S, E, ?], W] =
+    dropWriter[StateValid[S, E, ?]]
 
 }

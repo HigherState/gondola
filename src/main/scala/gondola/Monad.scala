@@ -31,7 +31,7 @@ trait OptionOps {
   }
 }
 
-trait MonadOps {
+trait MonadOps extends FlatMapSyntax with OptionOps with TraverseSyntax with ToFunctorOps {
 
   def pure[F[_], T](t: => T)(implicit monad:Monad[F]):F[T] =
     monad.pure(t)
@@ -39,9 +39,9 @@ trait MonadOps {
   def sequence[F[_], T](l:List[F[T]])(implicit monad:Monad[F]):F[List[T]] =
     monad.sequence(l)
 
-  implicit class SeqMonad[M[_], A](in: Seq[M[A]])(implicit monad: Monad[M]) {
+  implicit class SeqMonad[F[_], A](in: Seq[F[A]])(implicit monad: Monad[F]) {
 
-    def sequence:M[List[A]] =
+    def sequence:F[List[A]] =
       monad.sequence(in.toList)
   }
 }
@@ -97,15 +97,15 @@ trait MonadReaderOps extends MonadOps {
 
 
 
-object Monad extends MonadOps with FlatMapSyntax with OptionOps with TraverseSyntax with ToFunctorOps
+object Monad extends MonadOps
 
-object MonadError extends MonadErrorOps with FlatMapSyntax with OptionOps with TraverseSyntax with ToFunctorOps
+object MonadError extends MonadErrorOps
 
-object MonadReader extends MonadReaderOps with FlatMapSyntax with OptionOps with TraverseSyntax with ToFunctorOps
+object MonadReader extends MonadReaderOps
 
-object MonadWriter extends MonadWriterOps with FlatMapSyntax with OptionOps with TraverseSyntax with ToFunctorOps
+object MonadWriter extends MonadWriterOps
 
-object MonadWriterError extends MonadWriterOps with MonadErrorOps with FlatMapSyntax with OptionOps with TraverseSyntax with ToFunctorOps
+object MonadWriterError extends MonadWriterOps
 
 
 

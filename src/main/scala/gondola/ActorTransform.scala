@@ -1,7 +1,7 @@
 package gondola
 
-import cats.data.{Reader, ReaderT}
-import cats.{Traverse, ~>}
+import cats.data.ReaderT
+import cats.Traverse
 
 import scala.concurrent.Future
 import akka.actor._
@@ -80,6 +80,33 @@ private class ReaderActorTransform[D[_], R[_], S](transform: => D ~> ReaderT[R, 
     ReaderT[FutureT[R, ?], S, A](s => FutureT[R, A](actorRef.ask(fa -> s).asInstanceOf[Future[R[A]]])(af.dispatcher, M ,T))
 }
 
+private class StateActorTransform[D[_], R[_], S](initial: => S, name:Option[String])(implicit ST:StateTransformation[D, R, S], af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R])
+  extends (D ~> FutureT[R, ?]) {
+  import akka.pattern._
+
+  private val f = () => initial
+
+  def props =
+    Props{
+      new Actor {
+        private var state:S = f()
+        def receive = {
+          case (d:D[_]@unchecked, s:S@unchecked) =>
+            sender ! M.map(ST(d, s)){r =>
+              state = r._1
+              r._2
+            }
+        }
+      }
+    }
+
+  val actorRef = name.fold(af.actorOf(props)){n => af.actorOf(props, n)}
+
+  def apply[A](fa: D[A]) =
+    FutureT[R, A](actorRef.ask(fa).asInstanceOf[Future[R[A]]])(af.dispatcher, M, T)
+}
+
+
 private class SelectionTransform[D[_], R[_]](actorSelection:ActorSelection)(implicit af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R]) extends (D ~> FutureT[R, ?]) {
   import akka.pattern._
   import af.dispatcher
@@ -127,6 +154,10 @@ object ActorN {
 
     def selection[D[_], R[_], S](actorSelection:ActorSelection)(implicit af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R]): D ~> ReaderT[FutureT[R, ?], S, ?] =
       new ReaderSelectionTransform[D, R, S](actorSelection)
+  }
+
+  object State {
+
   }
 }
 

@@ -1,7 +1,8 @@
 package gondola.std
 
-import cats.{Monad, MonadError, MonadReader, ~>}
+import cats.{Monad, MonadError, MonadReader}
 import cats.data._
+import gondola.{ReaderTransformation, WriterTransformation, ~>}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -33,11 +34,20 @@ trait ReaderTransforms[R] extends ReaderMonads[R] with IdTransforms {
         fa.mapF[N, A](transform.apply)
     }
 
+  def dropReader[M[_]]: ReaderTransformation[ReaderT[M, R, ?], M, R] =
+    new ReaderTransformation[ReaderT[M, R, ?], M, R] {
+      def apply[A](fa: ReaderT[M, R, A], r: R): M[A] =
+        fa.run(r)
+    }
+
   implicit val id2Reader: Id ~> Reader[R, ?] =
     fromIdentity[Reader[R, ?]]
 
   implicit val reader2Reader: Reader[R, ?] ~> Reader[R, ?] =
     identity[Reader[R, ?]]
+
+  implicit val reader2Id: ReaderTransformation[Reader[R, ?], Id, R] =
+    dropReader[Id]
 }
 
 private sealed abstract class MonadReaderImpl[F[_], R](implicit val M:Monad[F]) extends MonadReader[ReaderT[F, R, ?], R] {
@@ -93,6 +103,15 @@ trait ReaderWriterTransforms[R, W] extends ReaderTransforms[R] with WriterTransf
   
   implicit val writer2ReaderWriter: Writer[W, ?] ~> ReaderWriter[R, W, ?] =
     toReaderTransform[Writer[W, ?], Writer[W, ?]]
+
+  implicit val readerWriter2reader: WriterTransformation[ReaderWriter[R, W, ?], Reader[R, ?], W] =
+    new WriterTransformation[ReaderWriter[R, W, ?], Reader[R, ?], W] {
+      def apply[A](fa: ReaderWriter[R, W, A]): Reader[R, (W, A)] =
+        fa.mapF[Id, (W, A)](_.run)
+    }
+
+  implicit val readerWriter2Writer: ReaderTransformation[ReaderWriter[R, W, ?], Writer[W, ?], R] =
+    dropReader[Writer[W, ?]]
 }
 
 trait ReaderValidMonads[R, E] extends ReaderMonads[R] with ValidMonads[E] {
@@ -114,6 +133,9 @@ trait ReaderValidTransforms[R, E] extends ReaderTransforms[R] with ValidTransfor
 
   implicit val valid2ReaderValid: Valid[E, ?] ~> ReaderValid[R, E, ?] =
     toReaderTransform[Valid[E, ?], Valid[E, ?]]
+
+  implicit val readerValid2Valid:ReaderTransformation[ReaderValid[R, E, ?], Valid[E, ?], R] =
+    dropReader[Valid[E, ?]]
 }
 
 trait ReaderFutureMonads[R] extends ReaderMonads[R] with FutureMonads {
@@ -135,6 +157,9 @@ trait ReaderFutureTransforms[R] extends ReaderFutureMonads[R] with ReaderTransfo
 
   implicit val readerFuture2ReaderFuture:ReaderFuture[R,?] ~> ReaderFuture[R, ?] =
     identity[ReaderFuture[R, ?]]
+
+  implicit val readerFuture2Future:ReaderTransformation[ReaderFuture[R, ?], Future, R] =
+    dropReader[Future]
 }
 
 trait ReaderWriterValidMonads[R, W, E] extends ReaderWriterMonads[R, W] with ReaderValidMonads[R, E] with WriterValidMonads[W, E] {
@@ -183,12 +208,27 @@ trait ReaderWriterValidTransforms[R, W, E]
   implicit val readerWriterValid2ReaderWriterValid:ReaderWriterValid[R, W, E, ?] ~> ReaderWriterValid[R, W, E, ?] =
     identity[ReaderWriterValid[R, W, E, ?]]
 
+  implicit val readerWriterValid2ReaderWriter: WriterTransformation[ReaderWriterValid[R, W, E, ?], ReaderValid[R, E, ?], W] =
+    new WriterTransformation[ReaderWriterValid[R, W, E, ?], ReaderValid[R, E, ?], W] {
+      def apply[A](fa: ReaderWriterValid[R, W, E, A]): ReaderValid[R, E, (W, A)] = {
+        fa.mapF[Valid[E, ?], (W, A)](_.run)
+      }
+    }
+
+  implicit val readerWriterValid2WriterValid: ReaderTransformation[ReaderWriterValid[R, W, E, ?], WriterValid[W, E, ?], R] =
+    dropReader[WriterValid[W, E, ?]]
 }
 
 trait ReaderFutureValidMonads[R, E] extends ReaderFutureMonads[R] with ReaderValidMonads[R, E] with FutureValidMonads[E] {
 
   implicit def readerFutureValidMonad(implicit ec:ExecutionContext):MonadReader[ReaderFutureValid[R, E, ?], R] with MonadError[ReaderFutureValid[R, E, ?], E] =
     new MonadReaderErrorImpl[FutureValid[E, ?], R, E] with MonadError[ReaderFutureValid[R, E, ?], E]
+}
+
+trait ReaderFutureValidTransforms[R, E] extends ReaderFutureValidMonads[R, E] with ReaderFutureTransforms[R] with ReaderValidTransforms[R, E] with FutureValidTransforms[E] {
+
+  implicit val readerFutureValid2FutureValid: ReaderTransformation[ReaderFutureValid[R, E, ?], FutureValid[E, ?], R] =
+    dropReader[FutureValid[E, ?]]
 }
 
 

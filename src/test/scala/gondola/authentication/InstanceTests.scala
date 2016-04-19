@@ -9,9 +9,7 @@ import akka.util.Timeout
 import repository._
 import java.util.concurrent.atomic.AtomicReference
 
-import cats.~>
-
-import scala.concurrent.{ExecutionContext}
+import scala.concurrent.ExecutionContext
 import gondola.std._
 
 object MyTransforms extends FutureValidTransforms[NonEmptyList[String]]
@@ -29,39 +27,37 @@ class InstanceTests extends FunSuite with Matchers with ScalaFutures with Before
   type V[T] = Valid[NonEmptyList[String], T]
 
 
-  test("CQRS actor implementation on repository with a future handling on the authentication service") {
-    //CQRS actors repository service.
-    //Single command handler actor and single query executor actor
-    val atomicHashMap = new AtomicReference[Map[UserLogin, UserCredentials]](Map.empty[UserLogin, UserCredentials])
-
-    val repo =
-      ActorN[KvC[UserLogin, UserCredentials, ?], Id](InMemoryKeyValueCommandHandler[Id, UserLogin, UserCredentials](atomicHashMap)) ->  // Kvc ~> Id ~> Future
-      ActorN[KvQ[UserLogin, UserCredentials, ?], Id](InMemoryKeyValueQueryExecutor[Id, UserLogin, UserCredentials](atomicHashMap)) |> // Kvq ~> Id ~> Future
-      Couple[KvD[UserLogin, UserCredentials, ?], KvC[UserLogin, UserCredentials, ?], KvQ[UserLogin, UserCredentials, ?], FutureT[Id, ?]] //KvD ~> Future
-
-    val liftedRepo:KvD[UserLogin, UserCredentials, ?] ~> FV = NaturalTransformExt[KvD[UserLogin, UserCredentials, ?], FutureT[Id, ?]](repo).>>>[FV] //KvD ~> Future ~> FutureValid
-
-    val t:Coproduct[KvC[UserLogin, UserCredentials, ?], KvQ[UserLogin, UserCredentials, ?], ?] ~> V = null
-
-    val c = AuthenticationCommandHandler(liftedRepo, 10)
-    val q = AuthenticationQueryExecutor(liftedRepo)
-    val cq = Couple[AuthenticationDomain, AuthenticationCommand, AuthenticationQuery, FV](c,q)
-    val futureAuthenticationService = ActorN.Future[AuthenticationDomain, V](cq)
-    //val futureAuthenticationService = new FutureActorTransform[AuthenticationDomain, Valid](auth, None)
+//  test("CQRS actor implementation on repository with a future handling on the authentication service") {
+//    //CQRS actors repository service.
+//    //Single command handler actor and single query executor actor
+//    val atomicHashMap = new AtomicReference[Map[UserLogin, UserCredentials]](Map.empty[UserLogin, UserCredentials])
 //
+//    val repo =
+//      ActorN[KvC[UserLogin, UserCredentials, ?], Id](InMemoryKeyValueCommandHandler[UserLogin, UserCredentials]) ->  // Kvc ~> Id ~> Future
+//      ActorN[KvQ[UserLogin, UserCredentials, ?], Id](InMemoryKeyValueQueryExecutor[UserLogin, UserCredentials]) |> // Kvq ~> Id ~> Future
+//      Couple[KvD[UserLogin, UserCredentials, ?], KvC[UserLogin, UserCredentials, ?], KvQ[UserLogin, UserCredentials, ?], FutureT[Id, ?]] //KvD ~> Future
 //
-//    //Authentication service will handle futures from repository actor
-
-    whenReady(futureAuthenticationService(CreateNewUser(UserLogin("test@test.com"), Password("password"))).value) { result1 =>
-      result1.value should equal (Xor.Right(Acknowledged))
-      whenReady(futureAuthenticationService(Authenticate(UserLogin("test@test.com"), Password("password"))).value) {result2 =>
-        result2.value should equal (Xor.Right(UserLogin("test@test.com")))
-      }
-      whenReady(futureAuthenticationService(CreateNewUser(UserLogin("test@test.com"), Password("password"))).value) { result3 =>
-        result3.value should equal (Xor.Left(NonEmptyList("UserCredentialsAlreadyExistFailure(userLogin)")))
-      }
-    }
-  }
+//    val liftedRepo:KvD[UserLogin, UserCredentials, ?] ~> FV = repo.>>>[FV] //KvD ~> Future ~> FutureValid
+//
+//    val c = AuthenticationCommandHandler(liftedRepo, 10)
+//    val q = AuthenticationQueryExecutor(liftedRepo)
+//    val cq = Couple[AuthenticationDomain, AuthenticationCommand, AuthenticationQuery, FV](c,q)
+//    val futureAuthenticationService = ActorN.Future[AuthenticationDomain, V](cq)
+//    //val futureAuthenticationService = new FutureActorTransform[AuthenticationDomain, Valid](auth, None)
+////
+////
+////    //Authentication service will handle futures from repository actor
+//
+//    whenReady(futureAuthenticationService(CreateNewUser(UserLogin("test@test.com"), Password("password"))).value) { result1 =>
+//      result1.value should equal (Xor.Right(Acknowledged))
+//      whenReady(futureAuthenticationService(Authenticate(UserLogin("test@test.com"), Password("password"))).value) {result2 =>
+//        result2.value should equal (Xor.Right(UserLogin("test@test.com")))
+//      }
+//      whenReady(futureAuthenticationService(CreateNewUser(UserLogin("test@test.com"), Password("password"))).value) { result3 =>
+//        result3.value should equal (Xor.Left(NonEmptyList("UserCredentialsAlreadyExistFailure(userLogin)")))
+//      }
+//    }
+//  }
 
 //  test("CQRS actor authentication service using the simple hashmap repository") {
 //    //simple repository service

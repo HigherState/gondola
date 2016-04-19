@@ -2,6 +2,7 @@ package gondola.std
 
 import cats.data.{Xor, XorT}
 import cats._
+import gondola.{WriterTransformation, ~>}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{CanAwait, ExecutionContext, Future}
@@ -22,6 +23,9 @@ final case class FutureT[F[_], A](value:Future[F[A]])(implicit ec: ExecutionCont
       case _ ⇒
         FutureT[F, B](value.map(M.map(_)(f)))
     }
+
+  def mapF[G[_]:Monad:Traverse, B](f: F[A] => G[B]):FutureT[G, B] =
+    FutureT[G, B](value.map(f))
 
   def flatMap[B](f: A ⇒ FutureT[F, B]): FutureT[F, B] =
     value match {
@@ -200,10 +204,10 @@ trait FutureTransfoms extends IdTransforms with FutureMonads {
         FutureT.fastF(transform(fa))
     }
 
-  def fromFutureTTransform[M[_], N[_]](implicit ec: ExecutionContext, M:Monad[N], T:Traverse[N], transform:M ~> N): FutureT[M, ?] ~> FutureT[N, ?] =
+  def fromFutureTTransform[M[_], N[_]](implicit M:Monad[N], T:Traverse[N], transform:M ~> N): FutureT[M, ?] ~> FutureT[N, ?] =
     new (FutureT[M, ?] ~> FutureT[N, ?]) {
       def apply[A](fa: FutureT[M, A]): FutureT[N, A] =
-        FutureT[N, A](fa.value.map(transform.apply))
+        fa.mapF(transform.apply)
     }
 
   def fromFutureTransform[N[_]](implicit ec: ExecutionContext, M:Monad[N], T:Traverse[N]): Future ~> FutureT[N, ?] =
@@ -222,6 +226,9 @@ trait FutureTransfoms extends IdTransforms with FutureMonads {
 
   implicit val future2future: Future ~> Future =
     identity[Future]
+
+  implicit val futureT2futureT: FutureT[Id, ?] ~> FutureT[Id, ?] =
+    identity[FutureT[Id, ?]]
 }
 
 trait FutureWriterMonads[W] extends FutureMonads with WriterMonads[W] {
@@ -261,11 +268,17 @@ trait FutureWriterTransforms[W] extends FutureWriterMonads[W] with FutureTransfo
   implicit def future2FutureWriter(implicit ec:ExecutionContext):Future ~> FutureWriter[W, ?] =
     fromFutureTransform[Writer[W, ?]]
 
-  implicit def futureT2FutureWriter(implicit ec:ExecutionContext):FutureT[Id, ?] ~> FutureWriter[W, ?] =
+  implicit val futureT2FutureWriter:FutureT[Id, ?] ~> FutureWriter[W, ?] =
     fromFutureTTransform[Id, Writer[W, ?]]
 
   implicit val futureWriter2futureWriter =
     identity[FutureWriter[W, ?]]
+
+  implicit val futureWriter2future:WriterTransformation[FutureWriter[W, ?], Future, W] =
+    new WriterTransformation[FutureWriter[W, ?], Future, W] {
+      def apply[A](fa: FutureWriter[W, A]): Future[(W, A)] =
+        fa.mapF[Id, (W, A)](w => w.run).value
+    }
 
 }
 
@@ -305,7 +318,7 @@ trait FutureValidTransforms[E] extends FutureValidMonads[E] with FutureTransfoms
   implicit def future2FutureValid(implicit ec:ExecutionContext):Future ~> FutureValid[E, ?] =
     fromFutureTransform[Valid[E, ?]]
 
-  implicit def futureT2FutureValid(implicit ec:ExecutionContext):FutureT[Id, ?] ~> FutureValid[E, ?] =
+  implicit val futureT2FutureValid:FutureT[Id, ?] ~> FutureValid[E, ?] =
     fromFutureTTransform[Id, Valid[E, ?]]
 
   implicit val futureValid2futureWriter =
@@ -355,7 +368,7 @@ trait FutureWriterValidTransforms[W, E] extends FutureWriterValidMonads[W, E] wi
   implicit def future2FutureWriterValid(implicit ec:ExecutionContext):Future ~> FutureWriterValid[W, E, ?] =
     fromFutureTransform[WriterValid[W, E, ?]]
 
-  implicit def futureT2FutureWriterValid(implicit ec:ExecutionContext):FutureT[Id, ?] ~> FutureWriterValid[W, E, ?] =
+  implicit val futureT2FutureWriterValid:FutureT[Id, ?] ~> FutureWriterValid[W, E, ?] =
     fromFutureTTransform[Id, WriterValid[W, E, ?]]
 
   implicit def writer2FutureWriterValid(implicit ec:ExecutionContext):Writer[W, ?] ~> FutureWriterValid[W, E, ?] =
@@ -364,16 +377,24 @@ trait FutureWriterValidTransforms[W, E] extends FutureWriterValidMonads[W, E] wi
   implicit def valid2FutureWriterValid(implicit ec:ExecutionContext):Valid[E, ?] ~> FutureWriterValid[W, E, ?] =
     toFutureTransform[Valid[E, ?], WriterValid[W, E, ?]]
 
-  implicit def futureValid2FutureWriterValid(implicit ec:ExecutionContext):FutureValid[E, ?] ~> FutureWriterValid[W, E, ?] =
+  implicit val futureValid2FutureWriterValid:FutureValid[E, ?] ~> FutureWriterValid[W, E, ?] =
     fromFutureTTransform[Valid[E, ?], WriterValid[W, E, ?]]
 
-  implicit def futureWriter2FutureWriterValid(implicit ec:ExecutionContext):FutureWriter[W, ?] ~> FutureWriterValid[W, E, ?] =
+  implicit val futureWriter2FutureWriterValid:FutureWriter[W, ?] ~> FutureWriterValid[W, E, ?] =
     fromFutureTTransform[Writer[W, ?], WriterValid[W, E, ?]]
 
   implicit def writerValid2FutureWriterValid(implicit ec:ExecutionContext):WriterValid[W, E, ?] ~> FutureWriterValid[W, E, ?] =
     toFutureTransform[WriterValid[W, E, ?], WriterValid[W, E, ?]]
 
-  implicit val fFutureWriterValid2FutureWriterValid:FutureWriterValid[W, E, ?] ~> FutureWriterValid[W, E, ?] =
+  implicit val futureWriterValid2FutureWriterValid:FutureWriterValid[W, E, ?] ~> FutureWriterValid[W, E, ?] =
     identity[FutureWriterValid[W, E, ?]]
+
+  implicit val futureWriterValid2FutureValid:WriterTransformation[FutureWriterValid[W, E, ?], FutureValid[E, ?], W] =
+    new WriterTransformation[FutureWriterValid[W, E, ?], FutureValid[E, ?], W] {
+      def apply[A](fa: FutureWriterValid[W, E, A]): FutureValid[E, (W, A)] =
+        fa.mapF[Valid[E, ?], (W, A)](_.run)
+    }
 }
+
+
 

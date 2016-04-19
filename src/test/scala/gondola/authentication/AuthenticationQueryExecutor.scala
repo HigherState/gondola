@@ -1,6 +1,5 @@
 package gondola.authentication
 
-import cats.~>
 import cats.data.NonEmptyList
 import gondola._
 import gondola.repository._

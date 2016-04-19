@@ -1,6 +1,7 @@
 package gondola.std
 
-import cats.{Applicative, Eval, Monad, Traverse, ~>}
+import cats.{Applicative, Eval, Monad, Traverse}
+import gondola.~>
 
 trait IdTransforms {
 
