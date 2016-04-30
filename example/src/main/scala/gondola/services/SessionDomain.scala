@@ -1,10 +1,11 @@
 package gondola.services
 
 import java.util.UUID
-import gondola.{Acknowledged, Ack}
+import cats.data.State
+import gondola.{~>, ~~>, Acknowledged, Ack}
 
 
-sealed trait SessionDomain[Y]
+sealed trait SessionDomain[Y] extends Serializable
 
 final case class Entry(user:String) extends SessionDomain[UUID]
 
@@ -21,7 +22,7 @@ class SimpleSessionService {
   def handle[Y]:Function[SessionDomain[Y], Y] = {
 
     case Entry(user) =>
-      nastyState = nastyState.filter(_._2 == user)
+      nastyState = nastyState.filterNot(_._2 == user)
       val newToken = UUID.randomUUID()
       nastyState += (newToken -> user)
       newToken
@@ -34,4 +35,69 @@ class SimpleSessionService {
       nastyState.get(token)
 
   }
+}
+
+
+
+
+
+
+
+
+
+class StateSessionService {
+
+  def handle[Y]:Function[SessionDomain[Y], State[Map[UUID, String], Y]] = {
+    case Entry(user) =>
+      State{state:Map[UUID,String] =>
+        val newToken = UUID.randomUUID()
+        val newState = state.filterNot(_._2 == user) + (newToken -> user)
+        newState -> newToken
+      }
+
+    case Evict(token) =>
+      State { state: Map[UUID, String] =>
+        val newState = state - token
+        newState -> Acknowledged
+      }
+
+    case Get(token) =>
+      State { state: Map[UUID, String] =>
+        state -> state.get(token)
+      }
+  }
+}
+
+
+
+
+
+
+
+
+object SessionService {
+
+  def apply:SessionDomain ~> State[Map[UUID, String], ?] =
+    new (SessionDomain ~~> State[Map[UUID, String], ?]) {
+
+      def handle[A]: Function[SessionDomain[A], State[Map[UUID, String], A]] = {
+        case Entry(user) =>
+          State{state:Map[UUID,String] =>
+            val newToken = UUID.randomUUID()
+            val newState = state.filterNot(_._2 == user) + (newToken -> user)
+            newState -> newToken
+          }
+
+        case Evict(token) =>
+          State { state: Map[UUID, String] =>
+            val newState = state - token
+            newState -> Acknowledged
+          }
+
+        case Get(token) =>
+          State { state: Map[UUID, String] =>
+            state -> state.get(token)
+          }
+      }
+    }
 }
