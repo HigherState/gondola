@@ -2,6 +2,7 @@ package gondola.services
 
 import java.util.UUID
 import cats.data.State
+import gondola.std.Id
 import gondola.{~>, ~~>, Acknowledged, Ack}
 
 
@@ -82,22 +83,34 @@ object SessionService {
 
       def handle[A]: Function[SessionDomain[A], State[Map[UUID, String], A]] = {
         case Entry(user) =>
-          State{state:Map[UUID,String] =>
+          State { current:Map[UUID,String] =>
             val newToken = UUID.randomUUID()
-            val newState = state.filterNot(_._2 == user) + (newToken -> user)
+            val newState = current.filterNot(_._2 == user) + (newToken -> user)
             newState -> newToken
           }
 
         case Evict(token) =>
-          State { state: Map[UUID, String] =>
-            val newState = state - token
+          State { current: Map[UUID, String] =>
+            val newState = current - token
             newState -> Acknowledged
           }
 
         case Get(token) =>
-          State { state: Map[UUID, String] =>
-            state -> state.get(token)
+          State { current: Map[UUID, String] =>
+            current -> current.get(token)
           }
       }
     }
+}
+
+
+
+
+class StateFold[T](var current:T) extends (State[T, ?] ~> Id) {
+
+  def apply[A](fa: State[T, A]): Id[A] = {
+    val (newState, a) = fa.run(current).value
+    current = newState
+    a
+  }
 }

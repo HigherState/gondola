@@ -3,7 +3,7 @@ package gondola
 import cats._
 import cats.data.{Coproduct, Xor}
 
-//Cannot Pimp a Natural transform. had to recreate
+//Cannot Pimp a Natural transformation. had to recreate
 trait ~>[F[_], G[_]] {
   self =>
 
