@@ -3,6 +3,7 @@ package gondola.authentication
 import cats.data.NonEmptyList
 import gondola.repository._
 import gondola._
+import gondola.services.Get
 
 abstract class AuthenticationDirectives[M[_]:VMonad]
   (repository:KvD[UserLogin, UserCredentials, ?] ~> M) {

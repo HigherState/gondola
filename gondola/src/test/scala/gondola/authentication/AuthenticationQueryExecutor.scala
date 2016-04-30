@@ -3,6 +3,7 @@ package gondola.authentication
 import cats.data.NonEmptyList
 import gondola._
 import gondola.repository._
+import gondola.services.{Values, Get}
 
 object AuthenticationQueryExecutor {
 

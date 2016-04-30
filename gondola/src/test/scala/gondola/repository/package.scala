@@ -1,5 +1,7 @@
 package gondola
 
+import gondola.services.{KeyValueQuery, KeyValueDomain, KeyValueCommand}
+
 package object repository {
   trait TF {
     type I[Y]

@@ -3,6 +3,7 @@ package gondola.authentication
 import gondola.Monad._
 import gondola._
 import gondola.repository._
+import gondola.services.{Get, Remove, Add}
 
 object AuthenticationCommandHandler {
 
