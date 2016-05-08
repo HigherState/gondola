@@ -12,7 +12,7 @@ final case class Entry(user:String) extends SessionDomain[UUID]
 
 final case class Evict(token:UUID) extends SessionDomain[Ack]
 
-final case class Get(token:UUID) extends SessionDomain[Option[String]]
+final case class Retrieve(token:UUID) extends SessionDomain[Option[String]]
 
 
 
@@ -32,7 +32,7 @@ class SimpleSessionService {
       nastyState -= token
       Acknowledged
 
-    case Get(token) =>
+    case Retrieve(token) =>
       nastyState.get(token)
 
   }
@@ -62,7 +62,7 @@ class StateSessionService {
         newState -> Acknowledged
       }
 
-    case Get(token) =>
+    case Retrieve(token) =>
       State { state: Map[UUID, String] =>
         state -> state.get(token)
       }
@@ -95,7 +95,7 @@ object SessionService {
             newState -> Acknowledged
           }
 
-        case Get(token) =>
+        case Retrieve(token) =>
           State { current: Map[UUID, String] =>
             current -> current.get(token)
           }

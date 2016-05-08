@@ -101,13 +101,28 @@ trait WriterTransforms[W] extends WriterMonads[W] with IdTransforms {
 
 trait WriterValidMonads[W, E] extends WriterMonads[W] with ValidMonads[E] {
 
-  implicit val writerValidMonad = new Monad[WriterValid[W, E, ?]] {
+  implicit val writerValidMonad = new MonadError[WriterValid[W, E, ?], E] with MonadWriter[WriterValid[W, E, ?], W]{
+
+    def raiseError[A](e: E): WriterValid[W, E, A] =
+      cats.data.WriterT[Valid[E,?],W,A](validMonad.raiseError[(W,A)](e))
+
+    def handleErrorWith[A](fa: WriterValid[W, E, A])(f: (E) => WriterValid[W, E, A]): WriterValid[W, E, A] =
+      cats.data.WriterT[Valid[E,?],W,A](validMonad.handleErrorWith(fa.run)(e => f(e).run))
 
     def pure[A](x: A): WriterValid[W, E, A] =
       WriterT.value[Valid[E, ?],W,A](x)
 
     def flatMap[A, B](fa: WriterValid[W, E, A])(f: (A) => WriterValid[W, E, B]): WriterValid[W, E, B] =
       fa.flatMap(f)
+
+    def writer[A](aw: (W, A)): WriterValid[W, E, A] =
+      cats.data.WriterT[Valid[E,?],W,A](validMonad.pure(aw))
+
+    def listen[A](fa: WriterValid[W, E, A]): WriterValid[W, E, (W, A)] =
+      cats.data.WriterT[Valid[E,?],W,(W, A)](fa.run.map(empty -> _))
+
+    def pass[A](fa: WriterValid[W, E, ((W) => W, A)]): WriterValid[W, E, A] =
+      cats.data.WriterT[Valid[E,?],W, A](fa.run.map{ case (l, (f, a)) => f(l) -> a})
   }
 
   implicit val writerValidTraverse:Traverse[WriterValid[W, E, ?]] = new Traverse[WriterValid[W, E, ?]] {
