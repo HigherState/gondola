@@ -71,6 +71,9 @@ case class ExpirationMap[A, +B, T](expirationQueue:Vector[(A, T)], keyValueExpir
   def toMap:Map[A, B] =
     iterator.toMap
 
+
+  override def empty: Map[A, B] = ExpirationMap.empty[A, B, T]
+
   override def filter(pred: ((A, B)) => Boolean): ExpirationMap[A, B, T] = {
     val current = E.getCurrent
     ExpirationMap(expirationQueue, keyValueExpiry.filter(p => !E.isExpired(p._2._2, current) && pred(p._1 -> p._2._1)))
