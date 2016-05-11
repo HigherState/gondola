@@ -9,7 +9,7 @@ trait ExpiryManager[T] {
   def isExpired(value:T, current:T):Boolean
 
   def isExpired(value:T):Boolean =
-    isExpired(getCurrent)
+    isExpired(value, getCurrent)
 
   def age(value:T, current:T):T
 
@@ -32,10 +32,13 @@ class SystemCurrentExpiry(interval:Long) extends ExpiryManager[Long] {
 
 object ExpirationMap {
 
-  def empty[A,B, T](implicit E:ExpiryManager[T]):ExpirationMap[A, B, T] =
-    ExpirationMap(Vector.empty, Map.empty)
-}
+  def empty[A, B, T](implicit E:ExpiryManager[T]):ExpirationMap[A, B, T] =
+    ExpirationMap(Vector.empty[(A, T)], Map.empty[A, (B,T)])
 
+  def apply[A,B, T](pairs:(A, B)*)(implicit E:ExpiryManager[T]):ExpirationMap[A, B, T] =
+    empty[A, B, T] ++ pairs
+
+}
 
 
 case class ExpirationMap[A, +B, T](expirationQueue:Vector[(A, T)], keyValueExpiry:Map[A,(B,T)])(implicit E:ExpiryManager[T]) extends Map[A, B] {
