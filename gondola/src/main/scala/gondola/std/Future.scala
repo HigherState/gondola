@@ -178,22 +178,6 @@ trait FutureMonads {
             }
           }
         }
-
-      def map[A, B](fa: FutureT[F, A])(f: (A) => B): FutureT[F, B] =
-        FutureT[F, B] {
-          fa.value.map{a =>
-            F.map(a)(f)
-          }
-        }
-
-      def product[A, B](fa: FutureT[F, A], fb: FutureT[F, B]): FutureT[F, (A, B)] =
-        FutureT[F, (A, B)] {
-          fa.value.flatMap{a =>
-            fb.value.map{b =>
-              F.product(a, b)
-            }
-          }
-        }
     }
 }
 

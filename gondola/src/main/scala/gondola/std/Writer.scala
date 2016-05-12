@@ -11,23 +11,6 @@ object Writer {
     cats.data.Writer(l, a)
 }
 
-trait MonadWriter[F[_], W] extends Monad[F] {
-
- def writer[A](aw: (W, A)): F[A]
-
- def listen[A](fa: F[A]): F[(W, A)]
-
- def pass[A](fa: F[(W => W, A)]): F[A]
-
- def tell(w: W): F[Unit] = writer((w, ()))
-
- def listens[A, B](fa: F[A])(f: W => B): F[(B, A)] =
-   map(listen(fa)) { case (w, a) => (f(w), a) }
-
-  def censor[A](fa: F[A])(f: W => W): F[A] =
-    flatMap(listen(fa)) { case (w, a) => writer((f(w), a)) }
-}
-
 trait WriterMonads[W] {
   implicit def writerMonoid: Monoid[W]
 

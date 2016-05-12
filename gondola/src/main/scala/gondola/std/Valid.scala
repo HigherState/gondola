@@ -8,7 +8,7 @@ import gondola.~>
 trait ValidMonads[E] extends IdTransforms {
 
   implicit val validMonad:MonadError[Valid[E, ?], E] =
-    cats.data.XorT.xorTMonadError[Id, E](cats.Id)
+    cats.data.XorT.xorTMonadError[Id, E](cats.idInstances)
 
   implicit val validTraverse = XorT.xorTTraverse[Id, E]
 

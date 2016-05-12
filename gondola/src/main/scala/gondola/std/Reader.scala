@@ -1,6 +1,6 @@
 package gondola.std
 
-import cats.{Monad, MonadError, MonadReader}
+import cats.{Monad, MonadError, MonadReader, MonadWriter}
 import cats.data._
 import gondola.{ReaderTransformation, WriterTransformation, ~>}
 
