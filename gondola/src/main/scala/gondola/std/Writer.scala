@@ -218,7 +218,7 @@ trait WriterStateTransforms[W, S] extends WriterStateMonads[W, S] with WriterTra
 
 trait WriterStateValidMonads[W, S, E] extends WriterStateMonads[W, S] with WriterValidMonads[W, E] with StateValidMonads[S, E] {
 
-  implicit val writerStateValidMonads:MonadState[WriterStateValid[W, S, E, ?], S] with MonadWriter[WriterStateValid[W, S, E, ?], W] with MonadError[WriterStateValid[W, S, E, ?], E] =
+  implicit val writerStateValidMonad:MonadState[WriterStateValid[W, S, E, ?], S] with MonadWriter[WriterStateValid[W, S, E, ?], W] with MonadError[WriterStateValid[W, S, E, ?], E] =
     new MonadState[WriterStateValid[W, S, E, ?], S] with MonadWriter[WriterStateValid[W, S, E, ?], W] with MonadError[WriterStateValid[W, S, E, ?], E] {
 
       def get: WriterStateValid[W, S, E, S] =

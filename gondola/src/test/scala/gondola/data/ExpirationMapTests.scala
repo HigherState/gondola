@@ -55,7 +55,7 @@ class ExpirationMapTests extends FunSpec with Matchers {
       it("two element with same expiration could be accessible if accessed before expired") {
         val manager = testExpirationManager
         val eMap = ExpirationMap.empty[Int, String, Long](manager)
-        val append = eMap ++ List((1 -> "one"),(2 -> "two"))
+        val append = eMap ++ List(1 -> "one",2 -> "two")
         manager.getCurrent = 2  // wait a bit
         append.length should be (2)
       }
@@ -72,7 +72,7 @@ class ExpirationMapTests extends FunSpec with Matchers {
         val eMap = ExpirationMap.empty[Int, String, Long](manager)
         val append = eMap + (1 -> "one")
         manager.getCurrent = 6
-        val append2 = append ++ List((2 -> "two"),(3 -> "three"))
+        val append2 = append ++ List(2 -> "two", 3 -> "three")
         manager.getCurrent = 13
         append2.length should be (2)
       }
@@ -92,8 +92,8 @@ class ExpirationMapTests extends FunSpec with Matchers {
       it("map with 3 elements, remove one, should get two back") {
         val manager = testExpirationManager
         val eMap = ExpirationMap.empty[Int, String, Long](manager)
-        val append = eMap ++ List((1 -> "one"),(2 -> "two"),(3 -> "three"))
-        val oneless = append - (2)
+        val append = eMap ++ List(1 -> "one",2 -> "two",3 -> "three")
+        val oneless = append - 2
         oneless.length should be (2)
         oneless.get(1) should be(Some("one"))
         oneless.get(3) should be(Some("three"))
@@ -101,9 +101,9 @@ class ExpirationMapTests extends FunSpec with Matchers {
       it("map with 3 elements, remove one with key 2 won't be accessible after") {
         val manager = testExpirationManager
         val eMap = ExpirationMap.empty[Int, String, Long](manager)
-        val append = eMap ++ List((1 -> "one"),(2 -> "two"),(3 -> "three"))
+        val append = eMap ++ List(1 -> "one", 2 -> "two", 3 -> "three")
         val keyToRemove = 2
-        val oneless = append - (keyToRemove)
+        val oneless = append - keyToRemove
         oneless.get(keyToRemove) should be(None)
       }
     }
@@ -111,7 +111,7 @@ class ExpirationMapTests extends FunSpec with Matchers {
       it("map with 3 elements, remove two, should get only one back") {
         val manager = testExpirationManager
         val eMap = ExpirationMap.empty[Int, String, Long](manager)
-        val append = eMap ++ List((1 -> "one"),(2 -> "two"),(3 -> "three"))
+        val append = eMap ++ List(1 -> "one", 2 -> "two", 3 -> "three")
         val oneleft = append -- List(2,3)
         oneleft.length should be (1)
         oneleft.get(1) should be(Some("one"))
@@ -119,7 +119,7 @@ class ExpirationMapTests extends FunSpec with Matchers {
       it("map with 3 elements, remove one with key 2 won't be accessible after") {
         val manager = testExpirationManager
         val eMap = ExpirationMap.empty[Int, String, Long](manager)
-        val append = eMap ++ List((1 -> "one"),(2 -> "two"),(3 -> "three"))
+        val append = eMap ++ List(1 -> "one", 2 -> "two", 3 -> "three")
         val keysToRemove = List(2,3)
         val oneleft = append -- keysToRemove
         oneleft.get(2) should be(None)
@@ -130,7 +130,7 @@ class ExpirationMapTests extends FunSpec with Matchers {
       it("three element in the map, none expired, return a list of 3 keys") {
         val manager = testExpirationManager
         val eMap = ExpirationMap.empty[Int, String, Long](manager)
-        val append = eMap ++ List((1 -> "one"),(2 -> "two"),(3 -> "three"))
+        val append = eMap ++ List(1 -> "one", 2 -> "two", 3 -> "three")
         val mapKeys = append.keys
         mapKeys.size should be (3)
       }
@@ -139,7 +139,7 @@ class ExpirationMapTests extends FunSpec with Matchers {
         val eMap = ExpirationMap.empty[Int, String, Long](manager)
         val append = eMap + (1 -> "one")
         manager.getCurrent = 6
-        val append2 = append ++ List((2 -> "two"),(3 -> "three"))
+        val append2 = append ++ List(2 -> "two", 3 -> "three")
         manager.getCurrent = 13
         val mapKeys = append2.keys
         mapKeys.size should be (2)
@@ -152,7 +152,7 @@ class ExpirationMapTests extends FunSpec with Matchers {
         manager.getCurrent = 1
         val append = eMap + (1 -> "one")
         manager.getCurrent = 6
-        val append2 = append ++ List((2 -> "two"),(3 -> "three"))
+        val append2 = append ++ List(2 -> "two", 3 -> "three")
         val filtered = append2.withTime.filter(x => x._3 < -5)
         filtered.foreach(println)
         filtered.size should be (2)
