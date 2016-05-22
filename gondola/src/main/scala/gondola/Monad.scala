@@ -5,6 +5,8 @@ import cats.std.list._
 import cats.syntax.{FlatMapSyntax, TraverseSyntax}
 
 
+object VectorInstances extends cats.std.VectorInstances
+
 trait OptionOps {
   implicit class OptionExt[T](value:Option[T]) {
     def mapM[M[_], S](f:T => M[S])(implicit monad:Monad[M]):M[Option[S]] =
@@ -39,10 +41,21 @@ trait MonadOps extends FlatMapSyntax with OptionOps with TraverseSyntax with ToF
   def sequence[F[_], T](l:List[F[T]])(implicit monad:Monad[F]):F[List[T]] =
     monad.sequence(l)
 
-  implicit class SeqMonad[F[_], A](in: Seq[F[A]])(implicit monad: Monad[F]) {
+  def sequence[F[_], T](v:Vector[F[T]])(implicit monad:Monad[F]):F[Vector[T]] = {
+    import VectorInstances._
+    monad.sequence(v)
+  }
+
+  implicit class VectorMonad[F[_], A](in: Vector[F[A]])(implicit monad: Monad[F]) {
+    import VectorInstances._
+    def sequence:F[Vector[A]] =
+      monad.sequence(in)
+  }
+
+  implicit class ListMonad[F[_], A](in: List[F[A]])(implicit monad: Monad[F]) {
 
     def sequence:F[List[A]] =
-      monad.sequence(in.toList)
+      monad.sequence(in)
   }
 }
 
@@ -106,7 +119,5 @@ object MonadReader extends MonadReaderOps
 object MonadWriter extends MonadWriterOps
 
 object MonadWriterError extends MonadWriterOps
-
-
 
 

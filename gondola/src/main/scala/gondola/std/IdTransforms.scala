@@ -3,21 +3,23 @@ package gondola.std
 import cats.{Applicative, Eval, Monad, Traverse}
 import gondola.~>
 
-trait IdTransforms {
+trait IdMonad {
+  implicit val idMonad = new Monad[Id] {
+    def flatMap[A, B](fa: Id[A])(f: (A) => Id[B]): Id[B] =
+      f(fa)
 
-  def identity[M[_]] = new (M ~> M) {
-    def apply[T](fa: M[T]): M[T] = fa
+    def pure[A](x: A): Id[A] =
+      x
   }
+}
 
-  def fromIdentity[M[_]](implicit monad:Monad[M]) =
-    new (Id ~> M) {
-      def apply[T](fa: Id[T]): M[T] =
-        monad.pure(fa)
-    }
+object IdMonads extends IdMonad
+
+trait IdTransformations {
 
   implicit val idTraverse:Traverse[Id] =
     new Traverse[Id] {
-      def traverse[G[_], A, B](fa: Id[A])(f: (A) => G[B])(implicit evidence$1: Applicative[G]): G[Id[B]] =
+      def traverse[G[_], A, B](fa: Id[A])(f: (A) => G[B])(implicit A: Applicative[G]): G[Id[B]] =
         f(fa)
 
       def foldLeft[A, B](fa: Id[A], b: B)(f: (B, A) => B): B =
@@ -28,6 +30,21 @@ trait IdTransforms {
     }
 
   implicit val id2id:Id ~> Id =
-    identity[Id]
-
+    IdTransformationOps.identity[Id]
 }
+
+object IdTransformations extends IdTransformations with IdMonad
+
+trait IdTransformationOps {
+  def identity[M[_]] = new (M ~> M) {
+    def apply[T](fa: M[T]): M[T] = fa
+  }
+
+  def fromIdentity[M[_]](implicit M:Monad[M]) =
+    new (Id ~> M) {
+      def apply[T](fa: Id[T]): M[T] =
+        M.pure(fa)
+    }
+}
+
+object IdTransformationOps extends IdTransformationOps

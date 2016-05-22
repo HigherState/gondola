@@ -30,6 +30,14 @@ package object std {
 
   type ReaderWriterValid[R, W, E, A] = ReaderT[WriterT[Valid[E, ?], W, ?], R, A]
 
+  type IO[A] = cats.data.Reader[Unit, A]
+
+  type IOValid[E, A] = ReaderValid[Unit, E, A]
+
+  type IOWriter[W, A] = ReaderWriter[Unit, W, A]
+
+  type IOWriterValid[W, E, A] = ReaderWriterValid[Unit, W, E, A]
+
   type FutureValid[E, A] = FutureT[Valid[E, ?], A]
 
   type FutureWriter[W, A] = FutureT[Writer[W, ?], A]

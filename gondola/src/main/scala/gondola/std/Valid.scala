@@ -1,31 +1,42 @@
 package gondola.std
 
 import cats.data.XorT
-import cats.{Eval, MonadError}
+import cats.{Eval, Monad, MonadError, Traverse}
 import gondola.~>
 
 
-trait ValidMonads[E] extends IdTransforms {
+trait ValidMonad {
 
-  implicit val validMonad:MonadError[Valid[E, ?], E] =
+  implicit def validMonad[E]:MonadError[Valid[E, ?], E] =
     cats.data.XorT.xorTMonadError[Id, E](cats.idInstances)
 
-  implicit val validTraverse = XorT.xorTTraverse[Id, E]
+  implicit def validTraverse[E]:Traverse[Valid[E, ?]] =
+    XorT.xorTTraverse[Id, E]
 
 }
 
-trait ValidTransforms[E] extends ValidMonads[E] with IdTransforms {
+object ValidMonads
+  extends ValidMonad
+    with IdMonad
 
-  implicit val id2Valid: Id ~> Valid[E, ?] =
-    fromIdentity[Valid[E, ?]]
+trait ValidTransformations {
 
-  implicit val valid2Valid:Valid[E, ?] ~> Valid[E, ?] =
-    identity[Valid[E, ?]]
+  implicit def id2Valid[E](implicit M:Monad[Valid[E, ?]]): Id ~> Valid[E, ?] =
+    IdTransformationOps.fromIdentity[Valid[E, ?]](M)
 
-  implicit val eval2Valid:Eval ~> Valid[E, ?] =
+  implicit def valid2Valid[E]:Valid[E, ?] ~> Valid[E, ?] =
+    IdTransformationOps.identity[Valid[E, ?]]
+
+  implicit def eval2Valid[E](implicit M:Monad[Valid[E, ?]]):Eval ~> Valid[E, ?] =
     new (Eval ~> Valid[E, ?]) {
       def apply[A](fa: Eval[A]): Valid[E, A] =
-        validMonad.pure(fa.value)
+        M.pure(fa.value)
     }
 
 }
+
+object ValidTransformations
+  extends ValidTransformations
+  with ValidMonad
+  with IdMonad
+  with IdTransformations

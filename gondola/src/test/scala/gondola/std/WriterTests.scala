@@ -3,7 +3,7 @@ package gondola.std
 import cats.Monoid
 import org.scalatest.{Matchers, FunSuite}
 
-trait StringVectorMonoid {
+object StringVectorMonoid {
   implicit val writerMonoid: Monoid[Vector[String]] = new Monoid[Vector[String]] {
     def empty: Vector[String] = Vector.empty
 
@@ -11,19 +11,14 @@ trait StringVectorMonoid {
   }
 }
 
-object WriterImpl
-  extends StringVectorMonoid
-  with WriterMonads[Vector[String]]
-  with WriterValidMonads[Vector[String], String]
-  with WriterStateMonads[Vector[String], Int]
-
 class WriterTests extends FunSuite with Matchers {
 
-  import WriterImpl._
+  import WriterStateValidMonads._
+  import StringVectorMonoid._
 
   test("Writer Monad") {
     type X[T] = Writer[Vector[String], T]
-    val m = writerMonad
+    val m = writerMonad[Vector[String]]
     ImplicitMonadTest.mapIntIsEven[X](m.pure(3)) should equal (m.pure(false))
     ImplicitMonadTest.flatMapValue[X](m.pure(5))(i => m.pure(i.toString)) should equal (Writer("5"))
     val (r, (v, w)) = ImplicitMonadTest.write[X, Vector[String]]()
@@ -32,7 +27,7 @@ class WriterTests extends FunSuite with Matchers {
 
   test("Writer Valid Monad") {
     type X[T] = WriterValid[Vector[String], String, T]
-    val m = writerValidMonad
+    val m = writerValidMonad[Vector[String], String]
     ImplicitMonadTest.mapIntIsEven[X](m.pure(3)) should equal (m.pure(false))
     ImplicitMonadTest.flatMapValue[X](m.pure(5))(i => m.pure(i.toString)) should equal (m.pure("5"))
     ImplicitMonadTest.errorValue[X, String](m.pure(5), "Not Odd") should equal (m.pure(true))
@@ -42,7 +37,7 @@ class WriterTests extends FunSuite with Matchers {
 
   test("Writer State Monad") {
     type X[T] = WriterState[Vector[String], Int, T]
-    val m = writerStateMonad
+    val m = writerStateMonad[Vector[String], Int]
     ImplicitMonadTest.mapIntIsEven[X](m.pure(3))
       .run.run(0).value should equal (0 -> (Vector.empty -> false))
     ImplicitMonadTest.flatMapValue[X](m.pure(5))(i => m.pure(i.toString))

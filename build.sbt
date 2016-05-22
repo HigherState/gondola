@@ -35,7 +35,6 @@ lazy val gondola = project
   .settings(buildSettings)
   .settings(libraryDependencies := Seq(reflect, shapeless, cats, akka, kindplugin, scalatest))
 
-
 lazy val example = project
   .settings(moduleName := "gondola-examples")
   .settings(buildSettings)

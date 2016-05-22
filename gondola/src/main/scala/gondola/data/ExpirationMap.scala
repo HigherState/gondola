@@ -24,7 +24,7 @@ class SystemCurrentExpiry(interval:Long) extends ExpiryManager[Long] {
     value < current
 
   def age(value: Long, current: Long): Long =
-    current - value
+    current - value - interval
 
   def newExpiry(): Long =
     getCurrent + interval
