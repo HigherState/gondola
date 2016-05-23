@@ -8,7 +8,7 @@ import org.scalatest.{FunSpec, Matchers}
 class ValidTests extends FunSpec with Matchers {
 
   import ValidMonads._
-  import MonadError._
+//  import MonadError._
 
   type X[T] = Valid[String, T]
 
@@ -27,7 +27,7 @@ class ValidTests extends FunSpec with Matchers {
       it("should return false when comparing an int with a wrong toString result") {
         ImplicitMonadTest.flatMapValue[X](m.pure(5))(i => m.pure(i.toString)) should not equal (m.pure("5i"))
       }
-      it("should return true when comparing an int with its own toString value") {
+      it("should return true when verifying if 5 is a not odd value") {
         ImplicitMonadTest.errorValue[X, String](m.pure(5), "Not Odd") should equal(m.pure(true))
       }
       //ImplicitMonadTest.errorValue[X, String](m.pure(4), "Not Odd") should equal (m.pure("Not Odd"))

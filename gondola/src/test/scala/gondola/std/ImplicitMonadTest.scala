@@ -19,14 +19,13 @@ object ImplicitMonadTest extends WriterTFunctions {
   def errorValue[M[_], E](value:M[Int], error:E)(implicit me:MonadError[M, E]):M[Boolean] = {
     import gondola.MonadError._
 
+    value.map(i => i % 2 == 0)
+    /*
     value.flatMap(i =>
-      match i {
-      case i if i % 2 == 0 =>
-        raiseError(error)
-      case _ =>
-        pure(true)
-    }
+      if (i % 2 == 0) raiseError(error)
+      else pure(true)
     )
+*/
   }
 
   def write[M[_], W]()(implicit m:MonadWriter[M, Vector[String]]):(M[Int], (Vector[String], Int)) =
