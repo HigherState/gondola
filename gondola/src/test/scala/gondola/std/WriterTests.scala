@@ -47,6 +47,8 @@ class WriterTests extends FunSuite with Matchers {
     r.run.run(0).value should equal (0 -> p)
 
     val r2 = ImplicitMonadTest.state[X](3)
+    println(r2)
+    println(r2.run)
     r2.run.run(0).value should equal (3 -> (Vector.empty -> false))
   }
 
