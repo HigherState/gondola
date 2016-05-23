@@ -19,7 +19,7 @@ object ImplicitMonadTest extends WriterTFunctions {
   def errorValue[M[_], E](value:M[Int], error:E)(implicit me:MonadError[M, E]):M[Boolean] = {
     import gondola.MonadError._
 
-    value.map(i => i % 2 == 0)
+    value.map(i => i % 2 != 0)
     /*
     value.flatMap(i =>
       if (i % 2 == 0) raiseError(error)
