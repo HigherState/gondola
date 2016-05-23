@@ -1,7 +1,7 @@
 package gondola.std
 
-import cats.{MonadState, MonadError}
-import cats.data.{WriterT, WriterTFunctions, NonEmptyList}
+import cats.{MonadError, MonadState, MonadWriter}
+import cats.data.WriterTFunctions
 import gondola._
 
 object ImplicitMonadTest extends WriterTFunctions {

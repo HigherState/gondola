@@ -24,7 +24,7 @@ class SystemCurrentExpiry(interval:Long) extends ExpiryManager[Long] {
     value < current
 
   def age(value: Long, current: Long): Long =
-    current - value
+    current - value - interval
 
   def newExpiry(): Long =
     getCurrent + interval
@@ -75,7 +75,8 @@ case class ExpirationMap[A, +B, T](expirationQueue:Vector[(A, T)], keyValueExpir
     iterator.toMap
 
 
-  override def empty: Map[A, B] = ExpirationMap.empty[A, B, T]
+  override def empty: Map[A, B] =
+    ExpirationMap.empty[A, B, T]
 
   override def filter(pred: ((A, B)) => Boolean): ExpirationMap[A, B, T] = {
     val current = E.getCurrent

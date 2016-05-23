@@ -5,6 +5,8 @@ import cats.std.list._
 import cats.syntax.{FlatMapSyntax, TraverseSyntax}
 
 
+object VectorInstances extends cats.std.VectorInstances
+
 trait OptionOps {
   implicit class OptionExt[T](value:Option[T]) {
     def mapM[M[_], S](f:T => M[S])(implicit monad:Monad[M]):M[Option[S]] =
@@ -39,10 +41,21 @@ trait MonadOps extends FlatMapSyntax with OptionOps with TraverseSyntax with ToF
   def sequence[F[_], T](l:List[F[T]])(implicit monad:Monad[F]):F[List[T]] =
     monad.sequence(l)
 
-  implicit class SeqMonad[F[_], A](in: Seq[F[A]])(implicit monad: Monad[F]) {
+  def sequence[F[_], T](v:Vector[F[T]])(implicit monad:Monad[F]):F[Vector[T]] = {
+    import VectorInstances._
+    monad.sequence(v)
+  }
+
+  implicit class VectorMonad[F[_], A](in: Vector[F[A]])(implicit monad: Monad[F]) {
+    import VectorInstances._
+    def sequence:F[Vector[A]] =
+      monad.sequence(in)
+  }
+
+  implicit class ListMonad[F[_], A](in: List[F[A]])(implicit monad: Monad[F]) {
 
     def sequence:F[List[A]] =
-      monad.sequence(in.toList)
+      monad.sequence(in)
   }
 }
 
@@ -66,22 +79,22 @@ trait MonadErrorOps extends MonadOps {
 }
 
 trait MonadWriterOps extends MonadOps {
-  def writer[F[_], W, A](aw: (W, A))(implicit M:std.MonadWriter[F, W]): F[A] =
+  def writer[F[_], W, A](aw: (W, A))(implicit M:cats.MonadWriter[F, W]): F[A] =
     M.writer(aw)
 
-  def listen[F[_], W, A](fa: F[A])(implicit M:std.MonadWriter[F, W]): F[(W, A)] =
+  def listen[F[_], W, A](fa: F[A])(implicit M:cats.MonadWriter[F, W]): F[(W, A)] =
     M.listen(fa)
 
-  def pass[F[_], W, A](fa: F[(W => W, A)])(implicit M:std.MonadWriter[F, W]): F[A] =
+  def pass[F[_], W, A](fa: F[(W => W, A)])(implicit M:cats.MonadWriter[F, W]): F[A] =
     M.pass(fa)
 
-  def tell[F[_], W](w: W)(implicit M:std.MonadWriter[F, W]): F[Unit] =
+  def tell[F[_], W](w: W)(implicit M:cats.MonadWriter[F, W]): F[Unit] =
     M.tell(w)
 
-  def listens[F[_], W, A, B](fa: F[A])(f: W => B)(implicit M:std.MonadWriter[F, W]): F[(B, A)] =
+  def listens[F[_], W, A, B](fa: F[A])(f: W => B)(implicit M:cats.MonadWriter[F, W]): F[(B, A)] =
     M.listens(fa)(f)
 
-  def censor[F[_], W, A](fa: F[A])(f: W => W)(implicit M:std.MonadWriter[F, W]): F[A] =
+  def censor[F[_], W, A](fa: F[A])(f: W => W)(implicit M:cats.MonadWriter[F, W]): F[A] =
     M.censor(fa)(f)
 }
 
@@ -106,7 +119,5 @@ object MonadReader extends MonadReaderOps
 object MonadWriter extends MonadWriterOps
 
 object MonadWriterError extends MonadWriterOps
-
-
 
 

@@ -4,80 +4,110 @@ import cats._
 import cats.data._
 import gondola.{StateTransformation, ~>}
 
-trait StateMonads[S] {
-  implicit val stateMonad:MonadState[State[S, ?], S] =
+trait StateMonad {
+  implicit def stateMonad[S]:MonadState[State[S, ?], S] =
     cats.data.StateT.stateTMonadState[Eval, S]
 }
 
-trait StateTransforms[S] extends StateMonads[S] with IdTransforms {
+object StateMonads
+  extends StateMonad
+  with IdMonad
 
-  def toStateTransform[M[_], N[_]](implicit transform:M ~> N, monad:Monad[N]): M ~> StateT[N, S, ?] =
+trait StateTransformationOps {
+  def toStateTransform[M[_], N[_], S](implicit T:M ~> N, M:Monad[N]): M ~> StateT[N, S, ?] =
     new (M ~> StateT[N, S, ?]) {
       def apply[A](fa: M[A]): StateT[N, S, A] =
-        StateT[N, S, A](s => monad.map(transform(fa))(s -> _))
+        StateT[N, S, A](s => M.map(T(fa))(s -> _))
     }
 
-  def fromStateTransform[M[_], N[_]](implicit transform:M ~> N, monadM:Monad[M], monadN:Monad[N]): StateT[M, S, ?] ~> StateT[N, S, ?] =
+  def fromStateTransform[M[_], N[_], S](implicit T:M ~> N, M:Monad[M], N:Monad[N]): StateT[M, S, ?] ~> StateT[N, S, ?] =
     new (StateT[M, S, ?] ~> StateT[N, S, ?]) {
       def apply[A](fa: StateT[M, S, A]): StateT[N, S, A] =
-        fa.transformF[N, A](transform.apply)
+        fa.transformF[N, A](T.apply)(M, N)
     }
+}
 
-  implicit val id2State: Id ~> State[S, ?] =
-    fromIdentity[State[S, ?]]
+object StateTransformationOps extends StateTransformationOps
 
-  implicit val state2State: State[S, ?] ~> State[S, ?] =
-    identity[State[S, ?]]
+trait StateTransformations {
 
-  implicit val state2Id: StateTransformation[State[S, ?], Id, S] =
+  implicit def id2State[S](implicit M:Monad[State[S, ?]]): Id ~> State[S, ?] =
+    IdTransformationOps.fromIdentity[State[S, ?]](M)
+
+  implicit def state2State[S]: State[S, ?] ~> State[S, ?] =
+    IdTransformationOps.identity[State[S, ?]]
+
+  implicit def state2Id[S]: StateTransformation[State[S, ?], Id, S] =
     new StateTransformation[State[S, ?], Id, S] {
       def apply[A](fa: State[S, A], s: S): Id[(S, A)] =
         fa.run(s).value
     }
 }
 
+object StateTransformations
+  extends StateTransformations
+  with IdTransformations
+  with StateMonad
+  with IdMonad
 
-trait StateValidMonads[S, E] extends StateMonads[S] with ValidMonads[E] {
 
-  implicit val stateValidMonad:MonadState[StateValid[S, E, ?], S] with MonadError[StateValid[S, E, ?], E] =
+trait StateValidMonad  {
+
+  implicit def stateValidMonad[S, E](implicit M:MonadError[Valid[E, ?], E]):MonadState[StateValid[S, E, ?], S] with MonadError[StateValid[S, E, ?], E] =
     new MonadState[StateValid[S, E, ?], S] with MonadError[StateValid[S, E, ?], E] {
       def get: StateValid[S, E, S] =
-        StateT[Valid[E, ?], S, S](s => validMonad.pure(s -> s))
+        StateT[Valid[E, ?], S, S](s => M.pure(s -> s))
 
       def set(s: S): StateValid[S, E, Unit] =
-        StateT[Valid[E, ?], S, Unit](_ => validMonad.pure((s, ())))
+        StateT[Valid[E, ?], S, Unit](_ => M.pure((s, ())))
 
       def handleErrorWith[A](fa: StateValid[S, E, A])(f: (E) => StateValid[S, E, A]): StateValid[S, E, A] =
-        StateT[Valid[E, ?], S, A](s => validMonad.handleErrorWith(fa.run(s))(e => f(e).run(s)))
+        StateT[Valid[E, ?], S, A](s => M.handleErrorWith(fa.run(s))(e => f(e).run(s)))
 
       def raiseError[A](e: E): StateValid[S, E, A] =
-        StateT[Valid[E, ?], S, A](_ => validMonad.raiseError[(S, A)](e))
+        StateT[Valid[E, ?], S, A](_ => M.raiseError[(S, A)](e))
 
       def pure[A](x: A): StateValid[S, E, A] =
-        StateT.pure[Valid[E, ?], S, A](x)
+        StateT.pure[Valid[E, ?], S, A](x)(M)
 
       def flatMap[A, B](fa: StateValid[S, E, A])(f: (A) => StateValid[S, E, B]): StateValid[S, E, B] =
-        fa.flatMap(f)
+        fa.flatMap(f)(M)
     }
 }
 
-trait StateValidTransforms[S, E] extends StateTransforms[S] with StateValidMonads[S, E] with ValidTransforms[E] {
+object StateValidMonads
+  extends StateValidMonad
+  with StateMonad
+  with ValidMonad
+  with IdMonad
 
-  implicit val id2StateValid:Id ~> StateValid[S, E, ?] =
-    fromIdentity[StateValid[S, E, ?]]
+trait StateValidTransformations {
 
-  implicit val stateValid2StateValid:StateValid[S, E, ?] ~> StateValid[S, E, ?] =
-    identity[StateValid[S, E, ?]]
+  implicit def id2StateValid[S,E](implicit M:Monad[StateValid[S, E, ?]]):Id ~> StateValid[S, E, ?] =
+    IdTransformationOps.fromIdentity[StateValid[S, E, ?]](M)
 
-  implicit val state2StateValid:State[S, ?] ~> StateValid[S, E, ?] =
-    fromStateTransform[Eval, Valid[E, ?]]
+  implicit def stateValid2StateValid[S, E]:StateValid[S, E, ?] ~> StateValid[S, E, ?] =
+    IdTransformationOps.identity[StateValid[S, E, ?]]
 
-  implicit val valid2StateValid:Valid[E, ?] ~> StateValid[S, E, ?] =
-    toStateTransform[Valid[E, ?], Valid[E, ?]]
+  implicit def state2StateValid[S, E](implicit T:Eval ~> Valid[E, ?], M:Monad[Eval], N:Monad[Valid[E, ?]]):State[S, ?] ~> StateValid[S, E, ?] =
+    StateTransformationOps.fromStateTransform[Eval, Valid[E, ?], S](T, M, N)
 
-  implicit val state2Valid: StateTransformation[StateValid[S, E, ?], Valid[E, ?], S] =
+  implicit def valid2StateValid[S, E](implicit T:Valid[E, ?] ~> Valid[E, ?], N:Monad[Valid[E, ?]]):Valid[E, ?] ~> StateValid[S, E, ?] =
+    StateTransformationOps.toStateTransform[Valid[E, ?], Valid[E, ?], S](T, N)
+
+  implicit def state2Valid[S, E](implicit M:Monad[Valid[E, ?]]): StateTransformation[StateValid[S, E, ?], Valid[E, ?], S] =
     new StateTransformation[StateValid[S, E, ?], Valid[E, ?], S] {
       def apply[A](fa: StateValid[S, E, A], s: S): Valid[E, (S, A)] =
-        fa.run(s)
+        fa.run(s)(M)
     }
 }
+
+object StateValidTransformations
+  extends StateValidTransformations
+  with ValidTransformations
+  with StateTransformations
+  with IdTransformations
+  with StateValidMonad
+  with StateMonad
+  with ValidMonad
+  with IdMonad

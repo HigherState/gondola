@@ -130,9 +130,8 @@ private case class ErrorFuture(error: Throwable) extends Future[Nothing] {
     //FutureT(this).transformWith(f).value
 }
 
-object FutureMonads extends FutureMonads
 
-trait FutureMonads {
+trait FutureMonad {
 
   implicit def futureMonad(implicit ec: ExecutionContext): MonadError[Future, Throwable] with CoflatMap[Future] =
     new CoflatMap[Future] with MonadError[Future, Throwable]{
@@ -178,71 +177,70 @@ trait FutureMonads {
             }
           }
         }
-
-      def map[A, B](fa: FutureT[F, A])(f: (A) => B): FutureT[F, B] =
-        FutureT[F, B] {
-          fa.value.map{a =>
-            F.map(a)(f)
-          }
-        }
-
-      def product[A, B](fa: FutureT[F, A], fb: FutureT[F, B]): FutureT[F, (A, B)] =
-        FutureT[F, (A, B)] {
-          fa.value.flatMap{a =>
-            fb.value.map{b =>
-              F.product(a, b)
-            }
-          }
-        }
     }
 }
 
-trait FutureTransfoms extends IdTransforms with FutureMonads {
-  def toFutureTransform[M[_], N[_]](implicit ec: ExecutionContext, M:Monad[N], T:Traverse[N], transform:M ~> N): M ~> FutureT[N, ?] =
+object FutureMonads
+  extends FutureMonad
+  with IdMonad
+
+trait FutureTransformationOps {
+  def toFutureTransform[M[_], N[_]](implicit ec: ExecutionContext, N:Monad[N], T:Traverse[N], T2:M ~> N): M ~> FutureT[N, ?] =
     new (M ~> FutureT[N, ?]) {
       def apply[A](fa: M[A]): FutureT[N, A] =
-        FutureT.fastF(transform(fa))
+        FutureT.fastF(T2(fa))(ec, N, T)
     }
 
-  def fromFutureTTransform[M[_], N[_]](implicit M:Monad[N], T:Traverse[N], transform:M ~> N): FutureT[M, ?] ~> FutureT[N, ?] =
+  def fromFutureTTransform[M[_], N[_]](implicit M:Monad[N], T:Traverse[N], T2:M ~> N): FutureT[M, ?] ~> FutureT[N, ?] =
     new (FutureT[M, ?] ~> FutureT[N, ?]) {
       def apply[A](fa: FutureT[M, A]): FutureT[N, A] =
-        fa.mapF(transform.apply)
+        fa.mapF(T2.apply)
     }
 
-  def fromFutureTransform[N[_]](implicit ec: ExecutionContext, M:Monad[N], T:Traverse[N]): Future ~> FutureT[N, ?] =
+  def fromFutureTransform[N[_]](implicit ec: ExecutionContext, N:Monad[N], T:Traverse[N]): Future ~> FutureT[N, ?] =
     new (Future[?] ~> FutureT[N, ?]) {
       def apply[A](fa: Future[A]): FutureT[N, A] =
-        FutureT[N, A](fa.map(M.pure))
+        FutureT[N, A](fa.map(N.pure)(ec))(ec, N, T)
     }
+}
 
-  implicit def id2Future(implicit ec: ExecutionContext): Id ~> Future =
-    fromIdentity[Future]
+object FutureTransformationOps extends FutureTransformationOps
 
-  implicit def id2FutureT(implicit ec: ExecutionContext): Id ~> FutureT[Id, ?] =
+trait FutureTransformations {
+
+  implicit def id2Future(implicit ec: ExecutionContext, M:Monad[Future]): Id ~> Future =
+    IdTransformationOps.fromIdentity[Future](M)
+
+  implicit def id2FutureT(implicit ec: ExecutionContext, N:Monad[Id], T:Traverse[Id]): Id ~> FutureT[Id, ?] =
     new (Id ~> FutureT[Id, ?]) {
-      def apply[A](fa: Id[A]): FutureT[Id, A] = FutureT.fast(fa)
+      def apply[A](fa: Id[A]): FutureT[Id, A] = FutureT.fast(fa)(ec, N, T)
     }
 
   implicit val future2future: Future ~> Future =
-    identity[Future]
+    IdTransformationOps.identity[Future]
 
   implicit val futureT2futureT: FutureT[Id, ?] ~> FutureT[Id, ?] =
-    identity[FutureT[Id, ?]]
+    IdTransformationOps.identity[FutureT[Id, ?]]
 }
 
-trait FutureWriterMonads[W] extends FutureMonads with WriterMonads[W] {
+object FutureTransfomations
+  extends FutureTransformations
+  with IdTransformations
+  with FutureMonad
+  with IdMonad
 
-  implicit def futureWriterMonad(implicit ec:ExecutionContext): MonadError[FutureWriter[W, ?], Throwable] with MonadWriter[FutureWriter[W, ?], W] =
+trait FutureWriterMonad {
+
+  implicit def futureWriterMonad[W](implicit ec:ExecutionContext, MW:MonadWriter[Writer[W, ?], W], T:Traverse[Writer[W, ?]]): MonadError[FutureWriter[W, ?], Throwable] with MonadWriter[FutureWriter[W, ?], W] =
     new MonadError[FutureWriter[W, ?], Throwable] with MonadWriter[FutureWriter[W, ?], W] {
       def writer[A](aw: (W, A)): FutureWriter[W, A] =
-        FutureT.fastF[Writer[W, ?], A](writerMonad.writer(aw))
+        FutureT.fastF[Writer[W, ?], A](MW.writer(aw))(ec, MW, T)
 
       def listen[A](fa: FutureWriter[W, A]): FutureWriter[W, (W, A)] =
-        FutureT[Writer[W, ?], (W, A)](fa.value.map(r => writerMonad.writer(r.run._1 -> r.run)))
+        FutureT[Writer[W, ?], (W, A)](fa.value.map(r => MW.writer(r.run._1 -> r.run)))
 
       def pass[A](fa: FutureWriter[W, ((W) => W, A)]): FutureWriter[W, A] =
-        FutureT[Writer[W, ?], A](fa.value.map(f => writerMonad.pass(f)))
+        FutureT[Writer[W, ?], A](fa.value.map(f => MW.pass(f)))(ec, MW, T)
 
       def handleErrorWith[A](fa: FutureWriter[W, A])(f: (Throwable) => FutureWriter[W, A]): FutureWriter[W, A] =
         ???
@@ -257,86 +255,121 @@ trait FutureWriterMonads[W] extends FutureMonads with WriterMonads[W] {
     }
 }
 
-trait FutureWriterTransforms[W] extends FutureWriterMonads[W] with FutureTransfoms with WriterTransforms[W] {
+object FutureWriterMonads
+  extends FutureWriterMonad
+  with FutureMonad
+  with WriterMonad
+  with IdMonad
 
-  implicit def id2FutureWriter(implicit ec:ExecutionContext):Id ~> FutureWriter[W, ?] =
-    toFutureTransform[Id, Writer[W, ?]]
+trait FutureWriterTransformations {
 
-  implicit def writer2FutureWriter(implicit ec:ExecutionContext):Writer[W, ?] ~> FutureWriter[W, ?] =
-    toFutureTransform[Writer[W, ?], Writer[W, ?]]
+  implicit def id2FutureWriter[W](implicit ec:ExecutionContext, N:Monad[Writer[W, ?]], T:Traverse[Writer[W, ?]], T2:Id ~> Writer[W, ?]):Id ~> FutureWriter[W, ?] =
+    FutureTransformationOps.toFutureTransform[Id, Writer[W, ?]](ec, N, T, T2)
 
-  implicit def future2FutureWriter(implicit ec:ExecutionContext):Future ~> FutureWriter[W, ?] =
-    fromFutureTransform[Writer[W, ?]]
+  implicit def writer2FutureWriter[W](implicit ec:ExecutionContext, N:Monad[Writer[W, ?]], T:Traverse[Writer[W, ?]], T2:Writer[W, ?] ~> Writer[W, ?]):Writer[W, ?] ~> FutureWriter[W, ?] =
+    FutureTransformationOps.toFutureTransform[Writer[W, ?], Writer[W, ?]](ec, N, T, T2)
 
-  implicit val futureT2FutureWriter:FutureT[Id, ?] ~> FutureWriter[W, ?] =
-    fromFutureTTransform[Id, Writer[W, ?]]
+  implicit def future2FutureWriter[W](implicit ec:ExecutionContext, N:Monad[Writer[W, ?]], T:Traverse[Writer[W, ?]]):Future ~> FutureWriter[W, ?] =
+    FutureTransformationOps.fromFutureTransform[Writer[W, ?]](ec, N, T)
 
-  implicit val futureWriter2futureWriter =
-    identity[FutureWriter[W, ?]]
+  implicit def futureT2FutureWriter[W](M:Monad[Writer[W, ?]], T:Traverse[Writer[W, ?]], T2:Id ~> Writer[W, ?]):FutureT[Id, ?] ~> FutureWriter[W, ?] =
+    FutureTransformationOps.fromFutureTTransform[Id, Writer[W, ?]](M, T, T2)
 
-  implicit val futureWriter2future:WriterTransformation[FutureWriter[W, ?], Future, W] =
+  implicit def futureWriter2futureWriter[W] =
+    IdTransformationOps.identity[FutureWriter[W, ?]]
+
+  implicit def futureWriter2future[W](implicit N:Monad[Writer[W, ?]], T:Traverse[Writer[W, ?]]):WriterTransformation[FutureWriter[W, ?], Future, W] =
     new WriterTransformation[FutureWriter[W, ?], Future, W] {
       def apply[A](fa: FutureWriter[W, A]): Future[(W, A)] =
         fa.mapF[Id, (W, A)](w => w.run).value
     }
-
 }
 
-trait FutureValidMonads[E] extends FutureMonads with ValidMonads[E] {
+object FutureWriterTransformations
+  extends FutureWriterTransformations
+  with WriterTransformations
+  with FutureTransformations
+  with FutureWriterMonad
+  with FutureMonad
+  with WriterMonad
+  with IdMonad
 
-  implicit def futureValidMonad(implicit ec:ExecutionContext):MonadError[FutureValid[E, ?], E] =
+trait FutureValidMonad  {
+
+  implicit def futureValidMonad[E](implicit ec:ExecutionContext, ME:MonadError[Valid[E, ?], E], T:Traverse[Valid[E, ?]]):MonadError[FutureValid[E, ?], E] =
     new MonadError[FutureValid[E, ?], E] {
       def raiseError[A](e: E): FutureValid[E, A] =
-        FutureT.fastF[Valid[E,?], A](validMonad.raiseError[A](e))
+        FutureT.fastF[Valid[E,?], A](ME.raiseError[A](e))(ec, ME, T)
 
       def handleErrorWith[A](fa: FutureValid[E, A])(f: (E) => FutureValid[E, A]): FutureValid[E, A] =
         FutureT[Valid[E, ?], A] {
           fa.value.flatMap[Valid[E, A]] {
             _.value match {
               case Xor.Left(e) => f(e).value
-              case Xor.Right(a) => FulfilledFuture(validMonad.pure(a))
+              case Xor.Right(a) => FulfilledFuture(ME.pure(a))
             }
-          }
-        }
+          }(ec)
+        }(ec, ME, T)
 
       def pure[A](x: A): FutureValid[E, A] =
-        FutureT.fast[Valid[E, ?], A](x)
+        FutureT.fast[Valid[E, ?], A](x)(ec, ME, T)
 
       def flatMap[A, B](fa: FutureValid[E, A])(f: (A) => FutureValid[E, B]): FutureValid[E, B] =
         fa.flatMap(f)
     }
 }
 
-trait FutureValidTransforms[E] extends FutureValidMonads[E] with FutureTransfoms with ValidTransforms[E] {
+object FutureValidMonads
+  extends FutureValidMonad
+  with FutureMonad
+  with ValidMonad
+  with IdMonad
 
-  implicit def id2FutureValid(implicit ec:ExecutionContext):Id ~> FutureValid[E, ?] =
-    toFutureTransform[Id, Valid[E, ?]]
+trait FutureValidTransformations {
 
-  implicit def valid2FutureValid(implicit ec:ExecutionContext):Valid[E, ?] ~> FutureValid[E, ?] =
-    toFutureTransform[Valid[E, ?], Valid[E, ?]]
+  implicit def id2FutureValid[E](implicit ec:ExecutionContext, N:Monad[Valid[E, ?]], T:Traverse[Valid[E, ?]], T2:Id ~> Valid[E, ?]):Id ~> FutureValid[E, ?] =
+    FutureTransformationOps.toFutureTransform[Id, Valid[E, ?]](ec, N, T, T2)
 
-  implicit def future2FutureValid(implicit ec:ExecutionContext):Future ~> FutureValid[E, ?] =
-    fromFutureTransform[Valid[E, ?]]
+  implicit def valid2FutureValid[E](implicit ec:ExecutionContext, N:Monad[Valid[E, ?]], T:Traverse[Valid[E, ?]], T2:Valid[E, ?] ~> Valid[E, ?]):Valid[E, ?] ~> FutureValid[E, ?] =
+    FutureTransformationOps.toFutureTransform[Valid[E, ?], Valid[E, ?]](ec, N, T, T2)
 
-  implicit val futureT2FutureValid:FutureT[Id, ?] ~> FutureValid[E, ?] =
-    fromFutureTTransform[Id, Valid[E, ?]]
+  implicit def future2FutureValid[E](implicit ec:ExecutionContext, N:Monad[Valid[E, ?]], T:Traverse[Valid[E, ?]]):Future ~> FutureValid[E, ?] =
+    FutureTransformationOps.fromFutureTransform[Valid[E, ?]](ec, N, T)
 
-  implicit val futureValid2futureWriter =
-    identity[FutureValid[E, ?]]
+  implicit def futureT2FutureValid[E](implicit M:Monad[Valid[E, ?]], T:Traverse[Valid[E, ?]], T2:Id ~> Valid[E, ?]):FutureT[Id, ?] ~> FutureValid[E, ?] =
+    FutureTransformationOps.fromFutureTTransform[Id, Valid[E, ?]](M, T, T2)
+
+  implicit def futureValid2futureWriter[E] =
+    IdTransformationOps.identity[FutureValid[E, ?]]
 }
 
-trait FutureWriterValidMonads[W,E] extends FutureValidMonads[E] with FutureWriterMonads[W] with WriterValidMonads[W, E] {
+object FutureValidTransformations
+  extends FutureValidTransformations
+  with FutureTransformations
+  with ValidTransformations
+  with IdTransformations
+  with FutureValidMonad
+  with FutureMonad
+  with ValidMonad
+  with IdMonad
 
-  implicit def futureWriterValidMonad(implicit ec:ExecutionContext):MonadWriter[FutureWriterValid[W, E, ?], W] with MonadError[FutureWriterValid[W, E, ?], E] =
+trait FutureWriterValidMonad {
+
+  implicit def futureWriterValidMonad[W, E]
+  (implicit
+    ec:ExecutionContext,
+    MWE:MonadWriter[WriterValid[W, E, ?], W] with MonadError[WriterValid[W, E, ?], E],
+     T:Traverse[WriterValid[W, E, ?]]
+  ):MonadWriter[FutureWriterValid[W, E, ?], W] with MonadError[FutureWriterValid[W, E, ?], E] =
     new MonadWriter[FutureWriterValid[W, E, ?], W] with MonadError[FutureWriterValid[W, E, ?], E] {
       def writer[A](aw: (W, A)): FutureWriterValid[W, E, A] =
-        FutureT.fastF[WriterValid[W, E, ?], A](writerValidMonad.writer(aw))
+        FutureT.fastF[WriterValid[W, E, ?], A](MWE.writer(aw))(ec, MWE, T)
 
       def listen[A](fa: FutureWriterValid[W, E, A]): FutureWriterValid[W, E, (W, A)] =
-        FutureT[WriterValid[W, E, ?], (W, A)](fa.value.map(r => writerValidMonad.listen(r)))
+        FutureT[WriterValid[W, E, ?], (W, A)](fa.value.map(r => MWE.listen(r))(ec))(ec, MWE, T)
 
       def pass[A](fa: FutureWriterValid[W, E, ((W) => W, A)]): FutureWriterValid[W, E, A] =
-        FutureT[WriterValid[W, E, ?], A](fa.value.map(r => writerValidMonad.pass(r)))
+        FutureT[WriterValid[W, E, ?], A](fa.value.map(r => MWE.pass(r))(ec))(ec, MWE, T)
 
       def handleErrorWith[A](fa: FutureWriterValid[W, E, A])(f: (E) => FutureWriterValid[W, E, A]): FutureWriterValid[W, E, A] =
         FutureT[WriterValid[W, E, ?], A] {
@@ -344,55 +377,65 @@ trait FutureWriterValidMonads[W,E] extends FutureValidMonads[E] with FutureWrite
             val r2 = r.run
             r2.value match {
               case Xor.Left(e) => f(e).value
-              case Xor.Right(a) => FulfilledFuture(writerValidMonad.writer(a))
+              case Xor.Right(a) => FulfilledFuture(MWE.writer(a))
             }
-          }
-        }
+          }(ec)
+        }(ec, MWE, T)
 
       def raiseError[A](e: E): FutureWriterValid[W, E, A] =
-        FutureT.fastF[WriterValid[W, E, ?], A](writerValidMonad.raiseError(e))
+        FutureT.fastF[WriterValid[W, E, ?], A](MWE.raiseError(e))(ec, MWE, T)
 
       def pure[A](x: A): FutureWriterValid[W, E, A] =
-        FutureT.fast[WriterValid[W, E, ?], A](x)
+        FutureT.fast[WriterValid[W, E, ?], A](x)(ec, MWE, T)
 
       def flatMap[A, B](fa: FutureWriterValid[W, E, A])(f: (A) => FutureWriterValid[W, E, B]): FutureWriterValid[W, E, B] =
         fa.flatMap(f)
   }
 }
 
-trait FutureWriterValidTransforms[W, E] extends FutureWriterValidMonads[W, E] with FutureWriterTransforms[W] with FutureValidTransforms[E] with WriterValidTransforms[W, E] {
+object FutureWriterValidMonads
+  extends FutureWriterValidMonad
+  with FutureWriterMonad
+  with FutureValidMonad
+  with WriterValidMonad
+  with FutureMonad
+  with WriterMonad
+  with ValidMonad
+  with IdMonad
 
-  implicit def id2FutureWriterValid(implicit ec:ExecutionContext):Id ~> FutureWriterValid[W, E, ?] =
-    toFutureTransform[Id, WriterValid[W, E, ?]]
+trait FutureWriterValidTransformations {
 
-  implicit def future2FutureWriterValid(implicit ec:ExecutionContext):Future ~> FutureWriterValid[W, E, ?] =
-    fromFutureTransform[WriterValid[W, E, ?]]
+  implicit def id2FutureWriterValid[W, E](implicit ec:ExecutionContext, N:Monad[WriterValid[W, E, ?]], T:Traverse[WriterValid[W, E, ?]], T2:Id ~> WriterValid[W, E, ?]):Id ~> FutureWriterValid[W, E, ?] =
+    FutureTransformationOps.toFutureTransform[Id, WriterValid[W, E, ?]](ec, N, T, T2)
 
-  implicit val futureT2FutureWriterValid:FutureT[Id, ?] ~> FutureWriterValid[W, E, ?] =
-    fromFutureTTransform[Id, WriterValid[W, E, ?]]
+  implicit def future2FutureWriterValid[W, E](implicit ec:ExecutionContext, N:Monad[WriterValid[W, E, ?]], T:Traverse[WriterValid[W, E, ?]]):Future ~> FutureWriterValid[W, E, ?] =
+    FutureTransformationOps.fromFutureTransform[WriterValid[W, E, ?]](ec, N, T)
 
-  implicit def writer2FutureWriterValid(implicit ec:ExecutionContext):Writer[W, ?] ~> FutureWriterValid[W, E, ?] =
-    toFutureTransform[Writer[W, ?], WriterValid[W, E, ?]]
+  implicit def futureT2FutureWriterValid[W, E](implicit N:Monad[WriterValid[W, E, ?]], T:Traverse[WriterValid[W, E, ?]], T2:Id ~> WriterValid[W, E, ?]):FutureT[Id, ?] ~> FutureWriterValid[W, E, ?] =
+    FutureTransformationOps.fromFutureTTransform[Id, WriterValid[W, E, ?]](N, T, T2)
 
-  implicit def valid2FutureWriterValid(implicit ec:ExecutionContext):Valid[E, ?] ~> FutureWriterValid[W, E, ?] =
-    toFutureTransform[Valid[E, ?], WriterValid[W, E, ?]]
+  implicit def writer2FutureWriterValid[W, E](implicit ec:ExecutionContext, N:Monad[WriterValid[W, E, ?]], T:Traverse[WriterValid[W, E, ?]], T2:Writer[W, ?] ~> WriterValid[W, E, ?]):Writer[W, ?] ~> FutureWriterValid[W, E, ?] =
+    FutureTransformationOps.toFutureTransform[Writer[W, ?], WriterValid[W, E, ?]](ec, N, T, T2)
 
-  implicit val futureValid2FutureWriterValid:FutureValid[E, ?] ~> FutureWriterValid[W, E, ?] =
-    fromFutureTTransform[Valid[E, ?], WriterValid[W, E, ?]]
+  implicit def valid2FutureWriterValid[W, E](implicit ec:ExecutionContext, N:Monad[WriterValid[W, E, ?]], T:Traverse[WriterValid[W, E, ?]], T2:Valid[E, ?] ~> WriterValid[W, E, ?]):Valid[E, ?] ~> FutureWriterValid[W, E, ?] =
+    FutureTransformationOps.toFutureTransform[Valid[E, ?], WriterValid[W, E, ?]](ec, N, T, T2)
 
-  implicit val futureWriter2FutureWriterValid:FutureWriter[W, ?] ~> FutureWriterValid[W, E, ?] =
-    fromFutureTTransform[Writer[W, ?], WriterValid[W, E, ?]]
+  implicit def futureValid2FutureWriterValid[W, E](N:Monad[WriterValid[W, E, ?]], T:Traverse[WriterValid[W, E, ?]], T2:Valid[E, ?] ~> WriterValid[W, E, ?]):FutureValid[E, ?] ~> FutureWriterValid[W, E, ?] =
+    FutureTransformationOps.fromFutureTTransform[Valid[E, ?], WriterValid[W, E, ?]](N, T, T2)
 
-  implicit def writerValid2FutureWriterValid(implicit ec:ExecutionContext):WriterValid[W, E, ?] ~> FutureWriterValid[W, E, ?] =
-    toFutureTransform[WriterValid[W, E, ?], WriterValid[W, E, ?]]
+  implicit def futureWriter2FutureWriterValid[W, E](implicit N:Monad[WriterValid[W, E, ?]], T:Traverse[WriterValid[W, E, ?]], T2:Writer[W, ?] ~> WriterValid[W, E, ?]):FutureWriter[W, ?] ~> FutureWriterValid[W, E, ?] =
+    FutureTransformationOps.fromFutureTTransform[Writer[W, ?], WriterValid[W, E, ?]](N, T, T2)
 
-  implicit val futureWriterValid2FutureWriterValid:FutureWriterValid[W, E, ?] ~> FutureWriterValid[W, E, ?] =
-    identity[FutureWriterValid[W, E, ?]]
+  implicit def writerValid2FutureWriterValid[W, E](implicit ec:ExecutionContext, N:Monad[WriterValid[W, E, ?]], T:Traverse[WriterValid[W, E, ?]], T2:WriterValid[W, E, ?] ~> WriterValid[W, E, ?]):WriterValid[W, E, ?] ~> FutureWriterValid[W, E, ?] =
+    FutureTransformationOps.toFutureTransform[WriterValid[W, E, ?], WriterValid[W, E, ?]](ec, N, T, T2)
 
-  implicit val futureWriterValid2FutureValid:WriterTransformation[FutureWriterValid[W, E, ?], FutureValid[E, ?], W] =
+  implicit def futureWriterValid2FutureWriterValid[W, E]:FutureWriterValid[W, E, ?] ~> FutureWriterValid[W, E, ?] =
+    IdTransformationOps.identity[FutureWriterValid[W, E, ?]]
+
+  implicit def futureWriterValid2FutureValid[W, E](implicit N:Monad[Valid[E, ?]], T:Traverse[Valid[E, ?]]):WriterTransformation[FutureWriterValid[W, E, ?], FutureValid[E, ?], W] =
     new WriterTransformation[FutureWriterValid[W, E, ?], FutureValid[E, ?], W] {
       def apply[A](fa: FutureWriterValid[W, E, A]): FutureValid[E, (W, A)] =
-        fa.mapF[Valid[E, ?], (W, A)](_.run)
+        fa.mapF[Valid[E, ?], (W, A)](_.run)(N, T)
     }
 }
 
