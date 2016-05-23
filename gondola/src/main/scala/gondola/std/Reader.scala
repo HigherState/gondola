@@ -12,6 +12,9 @@ object Reader {
 
   def apply[A, B](b:B):Reader[A,B] =
     ReaderT.pure(b)
+
+  def lift[M[_], A, B](f: A => M[B]):ReaderT[M, A, B] =
+    ReaderT[M, A, B](f)
 }
 
 trait ReaderMonad {
