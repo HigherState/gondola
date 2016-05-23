@@ -1,6 +1,6 @@
 package gondola.std
 
-import cats.data.{ReaderT, XorT}
+import cats.data.ReaderT
 
 object IO {
 
@@ -9,9 +9,7 @@ object IO {
     Reader(f2)
   }
 
-  def valid[E, T](f: => T):IOValid[E, T] =
-    validF(XorT.right[Id, E, T](f))
+  def lift[M[_], T](f: => M[T]):IOT[M, T] =
+    ReaderT[M, Unit, T](_ => f)
 
-  def validF[E, T](f: => Valid[E, T]):IOValid[E, T] =
-    ReaderT[Valid[E, ?], Unit, T](_ => f)
 }

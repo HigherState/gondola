@@ -32,6 +32,8 @@ package object std {
 
   type IO[A] = cats.data.Reader[Unit, A]
 
+  type IOT[M[_], A] = ReaderT[M, Unit, A]
+
   type IOValid[E, A] = ReaderValid[Unit, E, A]
 
   type IOWriter[W, A] = ReaderWriter[Unit, W, A]
