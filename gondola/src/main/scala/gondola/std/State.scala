@@ -111,3 +111,44 @@ object StateValidTransformations
   with StateMonad
   with ValidMonad
   with IdMonad
+
+
+trait ReaderStateTransformations {
+
+  implicit def reader2state[S]:Reader[S, ?] ~> State[S, ?] =
+    new (Reader[S, ?] ~> State[S, ?]) {
+     def apply[A](fa: Reader[S, A]): State[S, A] =
+       State[S, A](s =>
+        s -> fa.run(s)
+       )
+    }
+
+  implicit def readerValid2stateValid[S, E](implicit A:Applicative[Valid[E, ?]]):ReaderValid[S, E, ?] ~> StateValid[S, E, ?] =
+    new (ReaderValid[S, E, ?] ~> StateValid[S, E, ?]) {
+
+      def apply[A](fa: ReaderValid[S, E, A]): StateValid[S, E, A] =
+        StateT[Valid[E, ?], S, A](s =>
+          fa.run(s).map(s -> _)
+        )(A)
+    }
+
+  implicit def readerWriter2writerState[S, W]:ReaderWriter[S, W, ?] ~> WriterState[W, S, ?] =
+    new (ReaderWriter[S, W, ?] ~> WriterState[W, S, ?]) {
+      def apply[A](fa: ReaderWriter[S, W, A]): WriterState[W, S, A] =
+        WriterT[State[S, ?], W, A]{
+          State[S, (W, A)](s => s -> fa.run(s).run)
+        }
+    }
+
+  implicit def readerWriterValid2writerStateValid[S, W, E](implicit A:Applicative[Valid[E, ?]]):ReaderWriterValid[S, W, E, ?] ~> WriterStateValid[W, S, E, ?] =
+    new (ReaderWriterValid[S, W, E, ?] ~> WriterStateValid[W, S, E, ?]) {
+      def apply[A](fa: ReaderWriterValid[S, W, E, A]): WriterStateValid[W, S, E, A] = {
+        WriterT[StateValid[S, E, ?], W, A]{
+          StateT[Valid[E, ?], S, (W, A)](s => fa.run(s).run.map(s -> _))(A)
+        }
+      }
+    }
+}
+
+object ReaderStateTransformations
+  extends ReaderStateTransformations
