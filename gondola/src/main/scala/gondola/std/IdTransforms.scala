@@ -1,6 +1,6 @@
 package gondola.std
 
-import cats.{Applicative, Eval, Monad, Traverse}
+import cats.{Applicative, Eval, Functor, Monad, Traverse}
 import gondola.~>
 
 trait IdMonad {
@@ -31,6 +31,8 @@ trait IdTransformations {
 
   implicit val id2id:Id ~> Id =
     IdTransformationOps.identity[Id]
+
+  implicit val idFunctor:Functor[Id] = idTraverse
 }
 
 object IdTransformations extends IdTransformations with IdMonad

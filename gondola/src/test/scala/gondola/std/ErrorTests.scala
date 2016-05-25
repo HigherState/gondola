@@ -4,17 +4,16 @@ import cats.Monad
 import gondola.MonadError
 import org.scalatest.{FunSpec, Matchers}
 
+class ErrorTests extends FunSpec with Matchers {
 
-class ValidTests extends FunSpec with Matchers {
-
-  import ValidMonads._
+  import ErrorMonads._
 //  import MonadError._
 
-  type X[T] = Valid[String, T]
+  type X[T] = Error[String, T]
 
-  describe("Testing Valid Monad") {
+  describe("Testing Error Monad") {
     describe("Checking basic types") {
-      val m = implicitly[Monad[Valid[String, ?]]]
+      val m = implicitly[Monad[Error[String, ?]]]
       it("should return false when checking that int 3 with mapIntIsEven") {
         ImplicitMonadTest.mapIntIsEven[X](m.pure(3)) should equal(m.pure(false))
       }
@@ -33,4 +32,5 @@ class ValidTests extends FunSpec with Matchers {
       //ImplicitMonadTest.errorValue[X, String](m.pure(4), "Not Odd") should equal (m.pure("Not Odd"))
     }
   }
+
 }
