@@ -13,7 +13,7 @@ object StringVectorMonoid {
 
 class WriterTests extends FunSuite with Matchers {
 
-  import WriterStateValidMonads._
+  import WriterStateErrorMonads._
   import StringVectorMonoid._
 
   test("Writer Monad") {
@@ -26,8 +26,8 @@ class WriterTests extends FunSuite with Matchers {
   }
 
   test("Writer Valid Monad") {
-    type X[T] = WriterValid[Vector[String], String, T]
-    val m = writerValidMonad[Vector[String], String]
+    type X[T] = WriterError[Vector[String], String, T]
+    val m = writerErrorMonad[Vector[String], String]
     ImplicitMonadTest.mapIntIsEven[X](m.pure(3)) should equal (m.pure(false))
     ImplicitMonadTest.flatMapValue[X](m.pure(5))(i => m.pure(i.toString)) should equal (m.pure("5"))
     ImplicitMonadTest.errorValue[X, String](m.pure(5), "Not Odd") should equal (m.pure(true))

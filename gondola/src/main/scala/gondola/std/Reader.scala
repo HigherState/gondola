@@ -51,7 +51,7 @@ object ReaderTransformationOps extends ReaderTransformationOps
 
 trait ReaderTransformations {
 
-  implicit def id2Reader[R](M:Monad[Id]): Id ~> Reader[R, ?] =
+  implicit def id2Reader[R](implicit M:Monad[Id]): Id ~> Reader[R, ?] =
     IdTransformationOps.fromIdentity[Reader[R, ?]]
 
   implicit def reader2Reader[R]: Reader[R, ?] ~> Reader[R, ?] =
@@ -146,44 +146,44 @@ object ReaderWriterTransformations
   with IdMonad
 
 
-trait ReaderValidMonad {
+trait ReaderErrorMonad {
 
-  implicit def readerValidMonad[R, E](implicit ME:MonadError[Valid[E, ?], E]):MonadReader[ReaderValid[R, E, ?], R] with MonadError[ReaderValid[R, E, ?], E] =
-    new MonadReaderErrorImpl[Valid[E, ?], R, E]()(ME) with MonadError[ReaderValid[R, E, ?], E]
+  implicit def readerErrorMonad[R, E](implicit ME:MonadError[Error[E, ?], E]):MonadReader[ReaderError[R, E, ?], R] with MonadError[ReaderError[R, E, ?], E] =
+    new MonadReaderErrorImpl[Error[E, ?], R, E]()(ME) with MonadError[ReaderError[R, E, ?], E]
 }
 
-object ReaderValidMonads
-  extends ReaderValidMonad
+object ReaderErrorMonads
+  extends ReaderErrorMonad
   with ReaderMonad
-  with ValidMonad
+  with ErrorMonad
   with IdMonad
 
-trait ReaderValidTransformations {
+trait ReaderErrorTransformations {
 
-  implicit def id2ReaderValid[R, E](implicit M:Monad[ReaderValid[R, E,?]]): Id ~> ReaderValid[R, E, ?] =
-    IdTransformationOps.fromIdentity[ReaderValid[R, E, ?]](M)
+  implicit def id2ReaderError[R, E](implicit M:Monad[ReaderError[R, E,?]]): Id ~> ReaderError[R, E, ?] =
+    IdTransformationOps.fromIdentity[ReaderError[R, E, ?]](M)
 
-  implicit def readerValid2ReaderValid[R, E]: ReaderValid[R, E, ?] ~> ReaderValid[R, E, ?] =
-    IdTransformationOps.identity[ReaderValid[R, E, ?]]
+  implicit def readerError2ReaderError[R, E]: ReaderError[R, E, ?] ~> ReaderError[R, E, ?] =
+    IdTransformationOps.identity[ReaderError[R, E, ?]]
 
-  implicit def reader2ReaderValid[R, E](implicit T:Id ~> Valid[E, ?]): Reader[R, ?] ~> ReaderValid[R, E, ?] =
-    ReaderTransformationOps.fromReaderTransform[Id, Valid[E, ?], R](T)
+  implicit def reader2ReaderError[R, E](implicit T:Id ~> Error[E, ?]): Reader[R, ?] ~> ReaderError[R, E, ?] =
+    ReaderTransformationOps.fromReaderTransform[Id, Error[E, ?], R](T)
 
-  implicit def valid2ReaderValid[R, E](implicit T:Valid[E, ?] ~> Valid[E, ?], N:Monad[Valid[E, ?]]): Valid[E, ?] ~> ReaderValid[R, E, ?] =
-    ReaderTransformationOps.toReaderTransform[Valid[E, ?], Valid[E, ?], R](T, N)
+  implicit def error2ReaderError[R, E](implicit T:Error[E, ?] ~> Error[E, ?], N:Monad[Error[E, ?]]): Error[E, ?] ~> ReaderError[R, E, ?] =
+    ReaderTransformationOps.toReaderTransform[Error[E, ?], Error[E, ?], R](T, N)
 
-  implicit def readerValid2Valid[R, E]:ReaderTransformation[ReaderValid[R, E, ?], Valid[E, ?], R] =
-    ReaderTransformationOps.dropReader[Valid[E, ?], R]
+  implicit def readerError2Error[R, E]:ReaderTransformation[ReaderError[R, E, ?], Error[E, ?], R] =
+    ReaderTransformationOps.dropReader[Error[E, ?], R]
 }
 
-object ReaderValidTransformations
-  extends ReaderValidTransformations
+object ReaderErrorTransformations
+  extends ReaderErrorTransformations
   with ReaderTransformations
-  with ValidTransformations
+  with ErrorTransformations
   with IdTransformations
-  with ReaderValidMonad
+  with ReaderErrorMonad
   with ReaderMonad
-  with ValidMonad
+  with ErrorMonad
   with IdMonad
 
 trait ReaderFutureMonad {
@@ -216,123 +216,123 @@ trait ReaderFutureTransformations {
     ReaderTransformationOps.dropReader[Future, R]
 }
 
-trait ReaderWriterValidMonad {
+trait ReaderWriterErrorMonad {
 
-  implicit def readerWriterValidMonad[R, W, E](implicit MWE:MonadWriter[WriterValid[W, E, ?], W] with MonadError[WriterValid[W, E, ?], E]):MonadReader[ReaderWriterValid[R, W, E, ?], R] with MonadWriter[ReaderWriterValid[R, W, E, ?], W] with MonadError[ReaderWriterValid[R, W, E, ?], E] =
-    new MonadReaderErrorImpl[WriterValid[W, E, ?], R, E]()(MWE) with MonadWriter[ReaderWriterValid[R, W, E, ?], W] with MonadError[ReaderWriterValid[R, W, E, ?], E] {
+  implicit def readerWriterErrorMonad[R, W, E](implicit MWE:MonadWriter[WriterError[W, E, ?], W] with MonadError[WriterError[W, E, ?], E]):MonadReader[ReaderWriterError[R, W, E, ?], R] with MonadWriter[ReaderWriterError[R, W, E, ?], W] with MonadError[ReaderWriterError[R, W, E, ?], E] =
+    new MonadReaderErrorImpl[WriterError[W, E, ?], R, E]()(MWE) with MonadWriter[ReaderWriterError[R, W, E, ?], W] with MonadError[ReaderWriterError[R, W, E, ?], E] {
 
-      def listen[A](fa: ReaderWriterValid[R, W, E, A]): ReaderWriterValid[R, W, E, (W, A)] =
-        Kleisli[WriterValid[W, E, ?], R, (W, A)](r => MWE.listen(fa.run(r)))
+      def listen[A](fa: ReaderWriterError[R, W, E, A]): ReaderWriterError[R, W, E, (W, A)] =
+        Kleisli[WriterError[W, E, ?], R, (W, A)](r => MWE.listen(fa.run(r)))
 
-      def writer[A](aw: (W, A)): ReaderWriterValid[R, W, E, A] =
-        Kleisli[WriterValid[W, E, ?], R, A](_ => MWE.writer(aw))
+      def writer[A](aw: (W, A)): ReaderWriterError[R, W, E, A] =
+        Kleisli[WriterError[W, E, ?], R, A](_ => MWE.writer(aw))
 
-      def pass[A](fa: ReaderWriterValid[R, W, E, ((W) => W, A)]): ReaderWriterValid[R, W, E, A] =
-        Kleisli[WriterValid[W, E, ?], R, A](r => MWE.pass(fa.run(r)))
+      def pass[A](fa: ReaderWriterError[R, W, E, ((W) => W, A)]): ReaderWriterError[R, W, E, A] =
+        Kleisli[WriterError[W, E, ?], R, A](r => MWE.pass(fa.run(r)))
     }
 }
 
-object ReaderWriterValidMonads
-  extends ReaderWriterValidMonad
+object ReaderWriterErrorMonads
+  extends ReaderWriterErrorMonad
   with ReaderWriterMonad
-  with ReaderValidMonad
-  with WriterValidMonad
+  with ReaderErrorMonad
+  with WriterErrorMonad
   with ReaderMonad
   with WriterMonad
   with IdMonad
 
-trait ReaderWriterValidTransformations {
+trait ReaderWriterErrorTransformations {
 
-  implicit def id2ReaderWriterValid[R, W, E](implicit M:Monad[ReaderWriterValid[R, W, E, ?]]):Id ~> ReaderWriterValid[R, W, E, ?] =
-    IdTransformationOps.fromIdentity[ReaderWriterValid[R, W, E, ?]](M)
+  implicit def id2ReaderWriterError[R, W, E](implicit M:Monad[ReaderWriterError[R, W, E, ?]]):Id ~> ReaderWriterError[R, W, E, ?] =
+    IdTransformationOps.fromIdentity[ReaderWriterError[R, W, E, ?]](M)
 
-  implicit def reader2ReaderWriterValid[R, W, E](implicit T:Id ~> WriterValid[W, E, ?]):Reader[R, ?] ~> ReaderWriterValid[R, W, E, ?] =
-    ReaderTransformationOps.fromReaderTransform[Id, WriterValid[W, E, ?], R](T)
+  implicit def reader2ReaderWriterError[R, W, E](implicit T:Id ~> WriterError[W, E, ?]):Reader[R, ?] ~> ReaderWriterError[R, W, E, ?] =
+    ReaderTransformationOps.fromReaderTransform[Id, WriterError[W, E, ?], R](T)
 
-  implicit def writerValid2ReaderWriterValid[R, W, E](implicit T:WriterValid[W, E, ?] ~> WriterValid[W, E, ?], M:Monad[WriterValid[W, E, ?]]):WriterValid[W, E, ?] ~> ReaderWriterValid[R, W, E, ?] =
-    ReaderTransformationOps.toReaderTransform[WriterValid[W, E, ?], WriterValid[W, E, ?], R](T, M)
+  implicit def writerError2ReaderWriterError[R, W, E](implicit T:WriterError[W, E, ?] ~> WriterError[W, E, ?], M:Monad[WriterError[W, E, ?]]):WriterError[W, E, ?] ~> ReaderWriterError[R, W, E, ?] =
+    ReaderTransformationOps.toReaderTransform[WriterError[W, E, ?], WriterError[W, E, ?], R](T, M)
 
-  implicit def writer2ReaderWriterValid[R, W, E](implicit T:Writer[W, ?] ~> WriterValid[W, E, ?], M:Monad[WriterValid[W, E, ?]]):Writer[W, ?] ~> ReaderWriterValid[R, W, E, ?] =
-    ReaderTransformationOps.toReaderTransform[Writer[W, ?], WriterValid[W, E, ?], R](T, M)
+  implicit def writer2ReaderWriterError[R, W, E](implicit T:Writer[W, ?] ~> WriterError[W, E, ?], M:Monad[WriterError[W, E, ?]]):Writer[W, ?] ~> ReaderWriterError[R, W, E, ?] =
+    ReaderTransformationOps.toReaderTransform[Writer[W, ?], WriterError[W, E, ?], R](T, M)
 
-  implicit def valid2ReaderWriterValid[R, W, E](implicit T:Valid[E, ?] ~> WriterValid[W, E, ?], M:Monad[WriterValid[W, E, ?]]):Valid[E, ?] ~> ReaderWriterValid[R, W, E, ?] =
-    ReaderTransformationOps.toReaderTransform[Valid[E, ?], WriterValid[W, E, ?], R](T, M)
+  implicit def error2ReaderWriterError[R, W, E](implicit T:Error[E, ?] ~> WriterError[W, E, ?], M:Monad[WriterError[W, E, ?]]):Error[E, ?] ~> ReaderWriterError[R, W, E, ?] =
+    ReaderTransformationOps.toReaderTransform[Error[E, ?], WriterError[W, E, ?], R](T, M)
 
-  implicit def readerWriter2ReaderWriterValid[R, W, E](implicit T:Writer[W, ?] ~> WriterValid[W, E, ?]):ReaderWriter[R, W, ?] ~> ReaderWriterValid[R, W, E, ?] =
-    ReaderTransformationOps.fromReaderTransform[Writer[W, ?], WriterValid[W, E, ?], R](T)
+  implicit def readerWriter2ReaderWriterError[R, W, E](implicit T:Writer[W, ?] ~> WriterError[W, E, ?]):ReaderWriter[R, W, ?] ~> ReaderWriterError[R, W, E, ?] =
+    ReaderTransformationOps.fromReaderTransform[Writer[W, ?], WriterError[W, E, ?], R](T)
 
-  implicit def readerValid2ReaderWriterValid[R, W, E](implicit T:Valid[E, ?] ~> WriterValid[W, E, ?]):ReaderValid[R, E, ?] ~> ReaderWriterValid[R, W, E, ?] =
-    ReaderTransformationOps.fromReaderTransform[Valid[E, ?], WriterValid[W, E, ?], R](T)
+  implicit def readerError2ReaderWriterError[R, W, E](implicit T:Error[E, ?] ~> WriterError[W, E, ?]):ReaderError[R, E, ?] ~> ReaderWriterError[R, W, E, ?] =
+    ReaderTransformationOps.fromReaderTransform[Error[E, ?], WriterError[W, E, ?], R](T)
 
-  implicit def readerWriterValid2ReaderWriterValid[R, W, E]:ReaderWriterValid[R, W, E, ?] ~> ReaderWriterValid[R, W, E, ?] =
-    IdTransformationOps.identity[ReaderWriterValid[R, W, E, ?]]
+  implicit def readerWriterError2ReaderWriterError[R, W, E]:ReaderWriterError[R, W, E, ?] ~> ReaderWriterError[R, W, E, ?] =
+    IdTransformationOps.identity[ReaderWriterError[R, W, E, ?]]
 
-  implicit def readerWriterValid2ReaderWriter[R, W, E]: WriterTransformation[ReaderWriterValid[R, W, E, ?], ReaderValid[R, E, ?], W] =
-    new WriterTransformation[ReaderWriterValid[R, W, E, ?], ReaderValid[R, E, ?], W] {
-      def apply[A](fa: ReaderWriterValid[R, W, E, A]): ReaderValid[R, E, (W, A)] = {
-        fa.mapF[Valid[E, ?], (W, A)](_.run)
+  implicit def readerWriterError2ReaderWriter[R, W, E]: WriterTransformation[ReaderWriterError[R, W, E, ?], ReaderError[R, E, ?], W] =
+    new WriterTransformation[ReaderWriterError[R, W, E, ?], ReaderError[R, E, ?], W] {
+      def apply[A](fa: ReaderWriterError[R, W, E, A]): ReaderError[R, E, (W, A)] = {
+        fa.mapF[Error[E, ?], (W, A)](_.run)
       }
     }
 
-  implicit def readerWriterValid2WriterValid[R, W, E]: ReaderTransformation[ReaderWriterValid[R, W, E, ?], WriterValid[W, E, ?], R] =
-    ReaderTransformationOps.dropReader[WriterValid[W, E, ?], R]
+  implicit def readerWriterError2WriterError[R, W, E]: ReaderTransformation[ReaderWriterError[R, W, E, ?], WriterError[W, E, ?], R] =
+    ReaderTransformationOps.dropReader[WriterError[W, E, ?], R]
 }
 
-object ReaderWriterValidTransformations
-  extends ReaderWriterValidTransformations
+object ReaderWriterErrorTransformations
+  extends ReaderWriterErrorTransformations
   with ReaderWriterTransformations
-  with ReaderValidTransformations
-  with WriterValidTransformations
+  with ReaderErrorTransformations
+  with WriterErrorTransformations
   with ReaderTransformations
   with WriterTransformations
-  with ValidTransformations
+  with ErrorTransformations
   with IdTransformations
-  with ReaderWriterValidMonad
+  with ReaderWriterErrorMonad
   with ReaderWriterMonad
-  with ReaderValidMonad
-  with WriterValidMonad
+  with ReaderErrorMonad
+  with WriterErrorMonad
   with ReaderMonad
   with WriterMonad
   with IdMonad
 
-trait ReaderFutureValidMonad {
+trait ReaderFutureErrorMonad {
 
-  implicit def readerFutureValidMonad[R, E](implicit ec:ExecutionContext, M:MonadError[FutureValid[E, ?], E]):MonadReader[ReaderFutureValid[R, E, ?], R] with MonadError[ReaderFutureValid[R, E, ?], E] =
-    new MonadReaderErrorImpl[FutureValid[E, ?], R, E]()(M) with MonadError[ReaderFutureValid[R, E, ?], E]
+  implicit def readerFutureErrorMonad[R, E](implicit ec:ExecutionContext, M:MonadError[FutureError[E, ?], E]):MonadReader[ReaderFutureError[R, E, ?], R] with MonadError[ReaderFutureError[R, E, ?], E] =
+    new MonadReaderErrorImpl[FutureError[E, ?], R, E]()(M) with MonadError[ReaderFutureError[R, E, ?], E]
 }
 
-object ReaderFutureValidMonads
-  extends ReaderFutureValidMonad
+object ReaderFutureErrorMonads
+  extends ReaderFutureErrorMonad
   with ReaderFutureMonad
-  with ReaderValidMonad
-  with FutureValidMonad
+  with ReaderErrorMonad
+  with FutureErrorMonad
   with ReaderMonad
   with FutureMonad
-  with ValidMonad
+  with ErrorMonad
   with IdMonad
 
-trait ReaderFutureValidTransformations {
+trait ReaderFutureErrorTransformations {
 
-  implicit def readerFutureValid2FutureValid[R, E]: ReaderTransformation[ReaderFutureValid[R, E, ?], FutureValid[E, ?], R] =
-    ReaderTransformationOps.dropReader[FutureValid[E, ?], R]
+  implicit def readerFutureError2FutureError[R, E]: ReaderTransformation[ReaderFutureError[R, E, ?], FutureError[E, ?], R] =
+    ReaderTransformationOps.dropReader[FutureError[E, ?], R]
 }
 
-object ReaderFutureValidTransforms
-  extends ReaderFutureValidTransformations
+object ReaderFutureErrorTransforms
+  extends ReaderFutureErrorTransformations
   with ReaderFutureTransformations
-  with ReaderValidTransformations
-  with FutureValidTransformations
+  with ReaderErrorTransformations
+  with FutureErrorTransformations
   with ReaderTransformations
   with FutureTransformations
-  with ValidTransformations
+  with ErrorTransformations
   with IdTransformations
-  with ReaderFutureValidMonad
+  with ReaderFutureErrorMonad
   with ReaderFutureMonad
-  with ReaderValidMonad
-  with FutureValidMonad
+  with ReaderErrorMonad
+  with FutureErrorMonad
   with ReaderMonad
   with FutureMonad
-  with ValidMonad
+  with ErrorMonad
   with IdMonad
 
 

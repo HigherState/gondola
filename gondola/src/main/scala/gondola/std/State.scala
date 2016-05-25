@@ -51,65 +51,65 @@ object StateTransformations
   with IdMonad
 
 
-trait StateValidMonad  {
+trait StateErrorMonad  {
 
-  implicit def stateValidMonad[S, E](implicit M:MonadError[Valid[E, ?], E]):MonadState[StateValid[S, E, ?], S] with MonadError[StateValid[S, E, ?], E] =
-    new MonadState[StateValid[S, E, ?], S] with MonadError[StateValid[S, E, ?], E] {
-      def get: StateValid[S, E, S] =
-        StateT[Valid[E, ?], S, S](s => M.pure(s -> s))
+  implicit def stateErrorMonad[S, E](implicit M:MonadError[Error[E, ?], E]):MonadState[StateError[S, E, ?], S] with MonadError[StateError[S, E, ?], E] =
+    new MonadState[StateError[S, E, ?], S] with MonadError[StateError[S, E, ?], E] {
+      def get: StateError[S, E, S] =
+        StateT[Error[E, ?], S, S](s => M.pure(s -> s))
 
-      def set(s: S): StateValid[S, E, Unit] =
-        StateT[Valid[E, ?], S, Unit](_ => M.pure((s, ())))
+      def set(s: S): StateError[S, E, Unit] =
+        StateT[Error[E, ?], S, Unit](_ => M.pure((s, ())))
 
-      def handleErrorWith[A](fa: StateValid[S, E, A])(f: (E) => StateValid[S, E, A]): StateValid[S, E, A] =
-        StateT[Valid[E, ?], S, A](s => M.handleErrorWith(fa.run(s))(e => f(e).run(s)))
+      def handleErrorWith[A](fa: StateError[S, E, A])(f: (E) => StateError[S, E, A]): StateError[S, E, A] =
+        StateT[Error[E, ?], S, A](s => M.handleErrorWith(fa.run(s))(e => f(e).run(s)))
 
-      def raiseError[A](e: E): StateValid[S, E, A] =
-        StateT[Valid[E, ?], S, A](_ => M.raiseError[(S, A)](e))
+      def raiseError[A](e: E): StateError[S, E, A] =
+        StateT[Error[E, ?], S, A](_ => M.raiseError[(S, A)](e))
 
-      def pure[A](x: A): StateValid[S, E, A] =
-        StateT.pure[Valid[E, ?], S, A](x)(M)
+      def pure[A](x: A): StateError[S, E, A] =
+        StateT.pure[Error[E, ?], S, A](x)(M)
 
-      def flatMap[A, B](fa: StateValid[S, E, A])(f: (A) => StateValid[S, E, B]): StateValid[S, E, B] =
+      def flatMap[A, B](fa: StateError[S, E, A])(f: (A) => StateError[S, E, B]): StateError[S, E, B] =
         fa.flatMap(f)(M)
     }
 }
 
-object StateValidMonads
-  extends StateValidMonad
+object StateErrorMonads
+  extends StateErrorMonad
   with StateMonad
-  with ValidMonad
+  with ErrorMonad
   with IdMonad
 
-trait StateValidTransformations {
+trait StateErrorTransformations {
 
-  implicit def id2StateValid[S,E](implicit M:Monad[StateValid[S, E, ?]]):Id ~> StateValid[S, E, ?] =
-    IdTransformationOps.fromIdentity[StateValid[S, E, ?]](M)
+  implicit def id2StateError[S,E](implicit M:Monad[StateError[S, E, ?]]):Id ~> StateError[S, E, ?] =
+    IdTransformationOps.fromIdentity[StateError[S, E, ?]](M)
 
-  implicit def stateValid2StateValid[S, E]:StateValid[S, E, ?] ~> StateValid[S, E, ?] =
-    IdTransformationOps.identity[StateValid[S, E, ?]]
+  implicit def stateError2StateError[S, E]:StateError[S, E, ?] ~> StateError[S, E, ?] =
+    IdTransformationOps.identity[StateError[S, E, ?]]
 
-  implicit def state2StateValid[S, E](implicit T:Eval ~> Valid[E, ?], M:Monad[Eval], N:Monad[Valid[E, ?]]):State[S, ?] ~> StateValid[S, E, ?] =
-    StateTransformationOps.fromStateTransform[Eval, Valid[E, ?], S](T, M, N)
+  implicit def state2StateError[S, E](implicit T:Eval ~> Error[E, ?], M:Monad[Eval], N:Monad[Error[E, ?]]):State[S, ?] ~> StateError[S, E, ?] =
+    StateTransformationOps.fromStateTransform[Eval, Error[E, ?], S](T, M, N)
 
-  implicit def valid2StateValid[S, E](implicit T:Valid[E, ?] ~> Valid[E, ?], N:Monad[Valid[E, ?]]):Valid[E, ?] ~> StateValid[S, E, ?] =
-    StateTransformationOps.toStateTransform[Valid[E, ?], Valid[E, ?], S](T, N)
+  implicit def error2StateError[S, E](implicit T:Error[E, ?] ~> Error[E, ?], N:Monad[Error[E, ?]]):Error[E, ?] ~> StateError[S, E, ?] =
+    StateTransformationOps.toStateTransform[Error[E, ?], Error[E, ?], S](T, N)
 
-  implicit def state2Valid[S, E](implicit M:Monad[Valid[E, ?]]): StateTransformation[StateValid[S, E, ?], Valid[E, ?], S] =
-    new StateTransformation[StateValid[S, E, ?], Valid[E, ?], S] {
-      def apply[A](fa: StateValid[S, E, A], s: S): Valid[E, (S, A)] =
+  implicit def stateError2Error[S, E](implicit M:Monad[Error[E, ?]]): StateTransformation[StateError[S, E, ?], Error[E, ?], S] =
+    new StateTransformation[StateError[S, E, ?], Error[E, ?], S] {
+      def apply[A](fa: StateError[S, E, A], s: S): Error[E, (S, A)] =
         fa.run(s)(M)
     }
 }
 
-object StateValidTransformations
-  extends StateValidTransformations
-  with ValidTransformations
+object StateErrorTransformations
+  extends StateErrorTransformations
+  with ErrorTransformations
   with StateTransformations
   with IdTransformations
-  with StateValidMonad
+  with StateErrorMonad
   with StateMonad
-  with ValidMonad
+  with ErrorMonad
   with IdMonad
 
 
@@ -123,11 +123,11 @@ trait ReaderStateTransformations {
        )
     }
 
-  implicit def readerValid2stateValid[S, E](implicit A:Applicative[Valid[E, ?]]):ReaderValid[S, E, ?] ~> StateValid[S, E, ?] =
-    new (ReaderValid[S, E, ?] ~> StateValid[S, E, ?]) {
+  implicit def readerError2stateError[S, E](implicit A:Applicative[Error[E, ?]]):ReaderError[S, E, ?] ~> StateError[S, E, ?] =
+    new (ReaderError[S, E, ?] ~> StateError[S, E, ?]) {
 
-      def apply[A](fa: ReaderValid[S, E, A]): StateValid[S, E, A] =
-        StateT[Valid[E, ?], S, A](s =>
+      def apply[A](fa: ReaderError[S, E, A]): StateError[S, E, A] =
+        StateT[Error[E, ?], S, A](s =>
           fa.run(s).map(s -> _)
         )(A)
     }
@@ -140,11 +140,11 @@ trait ReaderStateTransformations {
         }
     }
 
-  implicit def readerWriterValid2writerStateValid[S, W, E](implicit A:Applicative[Valid[E, ?]]):ReaderWriterValid[S, W, E, ?] ~> WriterStateValid[W, S, E, ?] =
-    new (ReaderWriterValid[S, W, E, ?] ~> WriterStateValid[W, S, E, ?]) {
-      def apply[A](fa: ReaderWriterValid[S, W, E, A]): WriterStateValid[W, S, E, A] = {
-        WriterT[StateValid[S, E, ?], W, A]{
-          StateT[Valid[E, ?], S, (W, A)](s => fa.run(s).run.map(s -> _))(A)
+  implicit def readerWriterError2writerStateError[S, W, E](implicit A:Applicative[Error[E, ?]]):ReaderWriterError[S, W, E, ?] ~> WriterStateError[W, S, E, ?] =
+    new (ReaderWriterError[S, W, E, ?] ~> WriterStateError[W, S, E, ?]) {
+      def apply[A](fa: ReaderWriterError[S, W, E, A]): WriterStateError[W, S, E, A] = {
+        WriterT[StateError[S, E, ?], W, A]{
+          StateT[Error[E, ?], S, (W, A)](s => fa.run(s).run.map(s -> _))(A)
         }
       }
     }
