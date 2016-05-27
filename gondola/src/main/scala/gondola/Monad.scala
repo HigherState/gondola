@@ -17,10 +17,10 @@ trait OptionOps {
       value.fold(default)(t =>
         f(t)
       )
-    def getOrElseM[M[_], S >: T](f: => M[S])(implicit monad:Monad[M]):M[S] =
-      value.fold[M[S]](f)(t => monad.pure(t))
-    def orElseM[M[_], S >: T](f: => M[Option[S]])(implicit monad:Monad[M]):M[Option[S]] =
-      value.fold[M[Option[S]]](f)(t => monad.pure(Some(t)))
+    def getOrElseM[M[_]](f: => M[T])(implicit monad:Monad[M]):M[T] =
+      value.fold[M[T]](f)(t => monad.pure(t))
+    def orElseM[M[_]](f: => M[Option[T]])(implicit monad:Monad[M]):M[Option[T]] =
+      value.fold[M[Option[T]]](f)(t => monad.pure(Some(t)))
 
     //Collect broken under 2.11 this is a workaround
     def collectF[S](pf: PartialFunction[T, S]):Option[S] =

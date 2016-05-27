@@ -24,4 +24,5 @@ package object gondola {
       nt(self)
   }
 
+  val Acknowledged:Ack = new Ack{}
 }
