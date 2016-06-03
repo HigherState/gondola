@@ -17,6 +17,13 @@ trait MonadMatchers {
       }
     }
 
+  def succeed:Matcher[Any] =
+    new Matcher[Any] {
+      def apply(left: Any): MatchResult = {
+        MatchResult(getValue(left).isDefined, "Expected valid value.", "Unexpected valid value")
+      }
+    }
+
   def errorWith[E](error:E):Matcher[Any] =
     new Matcher[Any] {
       def apply(left: Any): MatchResult =

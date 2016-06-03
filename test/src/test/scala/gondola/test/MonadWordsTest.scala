@@ -25,9 +25,11 @@ class MonadWordsTest extends FunSuite with Matchers with MonadMatchers {
   }
 
   test("have value") {
-    hasValue[std.Writer[Vector[String], ?], Int](4) should haveValue(4)
-    hasValue[std.Error[String, ?], Int](4) should haveValue(4)
-    hasValue[std.WriterError[Vector[String], String, ?], Int](4) should haveValue(4)
+    withValue[std.Writer[Vector[String], ?], Int](4) should haveValue(4)
+    withValue[std.Error[String, ?], Int](4) should haveValue(4)
+    withValue[std.WriterError[Vector[String], String, ?], Int](4) should haveValue(4)
+    withValue[std.Error[String, ?], Int](4) should succeed
+    withValue[std.WriterError[Vector[String], String, ?], Int](4) should succeed
   }
 
   def failWith[M[_], E](message:E)(implicit M:MonadError[M, E]):M[_] =
@@ -36,6 +38,6 @@ class MonadWordsTest extends FunSuite with Matchers with MonadMatchers {
   def logWith[M[_], W](log:W)(implicit M:MonadWriter[M, W]):M[_] =
     M.writer(log -> Unit)
 
-  def hasValue[M[_], A](a:A)(implicit M:Monad[M]):M[A] =
+  def withValue[M[_], A](a:A)(implicit M:Monad[M]):M[A] =
     M.pure(a)
 }
