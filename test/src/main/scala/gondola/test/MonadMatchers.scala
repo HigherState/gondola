@@ -1,7 +1,7 @@
 package gondola.test
 
 import cats.Eval
-import cats.data.{XorT, WriterT, Xor}
+import cats.data.{NonEmptyList, XorT, WriterT, Xor}
 import gondola.std._
 import org.scalatest.matchers.{MatchResult, Matcher}
 
@@ -28,6 +28,17 @@ trait MonadMatchers {
     new Matcher[Any] {
       def apply(left: Any): MatchResult =
         MatchResult(getError(left).contains(error), s"Expected error '$error'.", s"Did not expect error '$error'")
+    }
+
+  def containError[E](error:E):Matcher[Any] =
+    new Matcher[Any] {
+      def apply(left: Any): MatchResult = {
+        val b = getError(left).collect {
+          case n:NonEmptyList[_] => n.head == error || n.tail.contains(error)
+          case s:Seq[_] => s.contains(error)
+        }
+        MatchResult(getError(left).contains(error), s"Expected error '$error'.", s"Did not expect error '$error'")
+      }
     }
 
   def haveLog[W](log:W):Matcher[Any] =
