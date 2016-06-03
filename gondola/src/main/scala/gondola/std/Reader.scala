@@ -239,6 +239,7 @@ object ReaderWriterErrorMonads
   with WriterErrorMonad
   with ReaderMonad
   with WriterMonad
+  with ErrorMonad
   with IdMonad
 
 trait ReaderWriterErrorTransformations {
@@ -293,6 +294,7 @@ object ReaderWriterErrorTransformations
   with WriterErrorMonad
   with ReaderMonad
   with WriterMonad
+  with ErrorMonad
   with IdMonad
 
 trait ReaderFutureErrorMonad {

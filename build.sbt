@@ -26,17 +26,23 @@ lazy val buildSettings = Seq(
 lazy val reflect = "org.scala-lang" % "scala-reflect" % "2.11.8"
 lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.0"
 lazy val cats = "org.typelevel" %% "cats" % "0.5.0"
-lazy val akka = "com.typesafe.akka" %% "akka-actor" % "2.4.4"
-lazy val scalatest = "org.scalatest" %% "scalatest" % "2.2.4"  % "test"
+lazy val akka = "com.typesafe.akka" %% "akka-actor" % "2.4.6"
+lazy val scalatestTest = "org.scalatest" %% "scalatest" % "2.2.6"  % "test"
+lazy val scalatest = "org.scalatest" %% "scalatest" % "2.2.6"
 lazy val kindplugin = compilerPlugin("org.spire-math" %% "kind-projector" % "0.7.1")
 
 lazy val gondola = project
   .settings(moduleName := "gondola")
   .settings(buildSettings)
-  .settings(libraryDependencies := Seq(reflect, shapeless, cats, akka, kindplugin, scalatest))
+  .settings(libraryDependencies := Seq(reflect, shapeless, cats, akka, kindplugin, scalatestTest))
 
 lazy val example = project
   .settings(moduleName := "gondola-examples")
+  .settings(buildSettings)
+  .settings(libraryDependencies := Seq(kindplugin, scalatestTest))
+  .dependsOn(gondola)
+lazy val test = project
+  .settings(moduleName := "gondola-test")
   .settings(buildSettings)
   .settings(libraryDependencies := Seq(kindplugin, scalatest))
   .dependsOn(gondola)

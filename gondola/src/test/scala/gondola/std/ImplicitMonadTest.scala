@@ -1,6 +1,6 @@
 package gondola.std
 
-import cats.{MonadError, MonadState, MonadWriter}
+import cats.{MonadError, MonadState}
 import cats.data.WriterTFunctions
 import gondola._
 
@@ -25,7 +25,7 @@ object ImplicitMonadTest extends WriterTFunctions {
     }
   }
 
-  def write[M[_], W]()(implicit m:MonadWriter[M, Vector[String]]):(M[Int], (Vector[String], Int)) =
+  def write[M[_], W]()(implicit m:cats.MonadWriter[M, Vector[String]]):(M[Int], (Vector[String], Int)) =
     (for {
       v <- m.pure(12)
       _ <- m.tell(Vector("one"))

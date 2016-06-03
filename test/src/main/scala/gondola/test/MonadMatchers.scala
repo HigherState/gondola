@@ -1,0 +1,189 @@
+package gondola.test
+
+import cats.Eval
+import cats.data.{XorT, WriterT, Xor}
+import gondola.std._
+import org.scalatest.matchers.{MatchResult, Matcher}
+
+import scala.concurrent.Await
+
+trait MonadMatchers {
+  import concurrent.duration._
+
+  def error:Matcher[Any] =
+    new Matcher[Any] {
+      def apply(left: Any): MatchResult = {
+        MatchResult(getError(left).isDefined, "Expected invalid value.", "Unexpected invalid value")
+      }
+    }
+
+  def errorWith[E](error:E):Matcher[Any] =
+    new Matcher[Any] {
+      def apply(left: Any): MatchResult =
+        MatchResult(getError(left).contains(error), s"Expected error '$error'.", s"Did not expect error '$error'")
+    }
+
+  def haveLog[W](log:W):Matcher[Any] =
+    new Matcher[Any] {
+      def apply(left: Any): MatchResult =
+        MatchResult(getLog(left).contains(log), s"Expected log '$log'.", s"Did not expect log '$log'")
+    }
+
+  def haveValue[A](a:A):Matcher[Any] =
+    new Matcher[Any] {
+      def apply(left: Any): MatchResult =
+        getValue(left).fold{
+          MatchResult(false, s"Expected value '$a', no value found.", s"Did not expect value '$a'")
+        }{t =>
+          MatchResult(t == a, s"Expected value '$a', found '$t'.", s"Did not expect log '$a'")
+        }
+
+    }
+
+  private def getError(a:Any):Option[Any] =
+    a match {
+      case Xor.Left(x) => Some(x)
+      case x:XorT[_,_,_] => getError(x.value)
+      case w:WriterT[_, _, _]@unchecked =>
+        val r = w.run
+        r match {
+          case Xor.Left(e) => Some(Xor.left(e))
+          case Xor.Right((w, a)) => Some(Xor.right(a))
+          case _ => None
+        }
+      case f:FutureT[_,_]@unchecked =>
+        getError(Await.result(f.value, 5.seconds))
+      case _ => None
+    }
+
+  private def getLog(a:Any):Option[Any] =
+    a match {
+      case w:WriterT[_, _, _] =>
+        w.run match {
+          case Xor.Right((w, a)) => Some(w)
+          case e:Eval[(_, _)]@unchecked => Some(e.value._1)
+          case (w, a) => Some(w)
+        }
+      case f:FutureT[_, _]@unchecked =>
+        getLog(Await.result(f.value, 5.seconds))
+    }
+
+  private def getValue(a:Any):Option[Any] =
+    a match {
+      case w:WriterT[_, _, _] =>
+        val r = w.run
+        r match {
+          case Xor.Right((w, a)) => getValue(a)
+          case (_, a) => Some(a)
+          case _ => None
+        }
+      case Xor.Right(x) => getValue(x)
+      case Xor.Left(_) => None
+      case f:FutureT[_, _]@unchecked =>
+        getLog(Await.result(f.value, 5.seconds))
+      case e:Eval[_] => Some(e.value)
+      case a => Some(a)
+    }
+}
+
+//final class FailWord {
+//
+//  def apply(right: DObject): Matcher[Valid[_]] =
+//    new Matcher[Any] {
+//      def apply(left: Any): MatchResult = {
+//        val result = left match {
+//          case Invalid(h) =>
+//            h.toList.contains(right)
+//          case _ => false
+//        }
+//        val message =
+//          if (result) ""
+//          else left match {
+//            case Invalid(h) =>
+//              val dif = h.toList.map(f => f.diff(right)).filter(_.size > 0).sortBy(_.size).headOption
+//              dif.fold("Bad Diff in FailWord, FIX ME"){d =>
+//                "unexpected failure " + d.toString
+//              }
+//            case _ =>
+//              "expected a failure"
+//          }
+//
+//        MatchResult(
+//          result,
+//          message,
+//          "should not have failed with " + right
+//        )
+//      }
+//      override def toString: String = "failWith (" + right.toString + ")"
+//    }
+//
+//  def apply():Matcher[Any] =
+//    new Matcher[Any] {
+//      def apply(left: Any): MatchResult = {
+//        val isFailure = left match {
+//          case Invalid(_) =>
+//            true
+//          case _ =>
+//            false
+//        }
+//        MatchResult(
+//          isFailure,
+//          "should have failed",
+//          "should have succeeded"
+//        )
+//      }
+//    }
+//}
+//
+//final class PubValidWord {
+//
+//  def apply(right: Event*):Matcher[PubValid[_]] =
+//    new Matcher[PubValid[_]] {
+//      def apply(left: PubValid[_]): MatchResult = {
+//        val l = left.run.toOption.map(_._1).getOrElse(Vector.empty)
+//        val required =  right.filter(e => !l.contains(e))
+//        MatchResult(
+//          required.isEmpty,
+//          "should contain all of " + required.mkString(","),
+//          "should not have contained any of " + (right.toSet -- required).mkString(",")
+//        )
+//      }
+//      override def toString: String = "failWith (" + right.toString + ")"
+//    }
+//}
+//
+//final class PubWord {
+//
+//  def apply(right: Event*):Matcher[Pub[_]] =
+//    new Matcher[Pub[_]] {
+//      def apply(left: Pub[_]): MatchResult = {
+//        val l = left.run._1
+//        val required =  right.filter(e => !l.contains(e))
+//        MatchResult(
+//          required.isEmpty,
+//          "should contain all of " + required.mkString(","),
+//          "should not have contained any of " + (right.toSet -- required).mkString(",")
+//        )
+//      }
+//      override def toString: String = "failWith (" + right.toString + ")"
+//    }
+//}
+//
+//final class SucceedWord {
+//  def apply(right: Any): Matcher[Valid[_]] =
+//    new BeWord().apply(Valid(right))
+//
+//  def apply():Matcher[Valid[_]] =
+//    new Matcher[Valid[_]] {
+//      def apply(left: Valid[_]): MatchResult = {
+//        val isSuccess = left.isRight
+//        MatchResult(
+//          isSuccess,
+//          "should have succeeded",
+//          "should have failed"
+//        )
+//      }
+//
+//    }
+//}
+//
