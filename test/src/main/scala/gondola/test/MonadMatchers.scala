@@ -36,8 +36,8 @@ trait MonadMatchers {
         val b = getError(left).collect {
           case n:NonEmptyList[_]@unchecked => n.head == error || n.tail.contains(error)
           case s:Seq[_]@unchecked => s.contains(error)
-        }
-        MatchResult(getError(left).contains(error), s"Expected error '$error'.", s"Did not expect error '$error'")
+        }.getOrElse(false)
+        MatchResult(b, s"Expected error '$error'.", s"Did not expect error '$error'")
       }
     }
 
@@ -45,6 +45,16 @@ trait MonadMatchers {
     new Matcher[Any] {
       def apply(left: Any): MatchResult =
         MatchResult(getLog(left).contains(log), s"Expected log '$log'.", s"Did not expect log '$log'")
+    }
+
+  def containLogEntry[W](entry:W):Matcher[Any] =
+    new Matcher[Any] {
+      def apply(left: Any): MatchResult = {
+        val b = getLog(left).collect {
+          case s:Seq[_]@unchecked => s.contains(entry)
+        }.getOrElse(false)
+        MatchResult(b, s"Expected log entry '$entry'.", s"Did not expect log entry '$entry'")
+      }
     }
 
   def haveValue[A](a:A):Matcher[Any] =
