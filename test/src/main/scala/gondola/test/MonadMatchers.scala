@@ -1,6 +1,6 @@
 package gondola.test
 
-import cats.Eval
+import cats.{MonadWriter, MonadError, Eval}
 import cats.data.{NonEmptyList, XorT, WriterT, Xor}
 import gondola.std._
 import org.scalatest.matchers.{MatchResult, Matcher}
@@ -65,8 +65,13 @@ trait MonadMatchers {
         }{t =>
           MatchResult(t == a, s"Expected value '$a', found '$t'.", s"Did not expect log '$a'")
         }
-
     }
+
+  def getMonadError[M[_], E, A](m:M[A])(implicit M:MonadError[M, E]) =
+    getError(m).map(_.asInstanceOf[E])
+
+  def getMonadLog[M[_], W, A](m:M[A])(implicit M:MonadWriter[M, W]) =
+    getLog(m).map(_.asInstanceOf[W])
 
   private def getError(a:Any):Option[Any] =
     a match {
