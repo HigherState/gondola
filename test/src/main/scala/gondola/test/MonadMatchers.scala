@@ -73,6 +73,9 @@ trait MonadMatchers {
   def getMonadLog[M[_], W, A](m:M[A])(implicit M:MonadWriter[M, W]) =
     getLog(m).map(_.asInstanceOf[W])
 
+  def getMonadValue[M[_], A](m:M[A]) =
+    getValue(m).map(_.asInstanceOf[A])
+
   private def getError(a:Any):Option[Any] =
     a match {
       case Xor.Left(x) => Some(x)
