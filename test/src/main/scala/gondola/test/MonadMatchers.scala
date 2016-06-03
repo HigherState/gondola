@@ -80,8 +80,8 @@ trait MonadMatchers {
       case w:WriterT[_, _, _]@unchecked =>
         val r = w.run
         r match {
-          case Xor.Left(e) => Some(Xor.left(e))
-          case Xor.Right((w, a)) => Some(Xor.right(a))
+          case Xor.Left(e) => Some(e)
+          case Xor.Right((w, a)) => None
           case _ => None
         }
       case f:FutureT[_,_]@unchecked =>
