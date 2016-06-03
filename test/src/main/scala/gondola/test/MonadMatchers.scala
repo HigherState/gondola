@@ -34,8 +34,8 @@ trait MonadMatchers {
     new Matcher[Any] {
       def apply(left: Any): MatchResult = {
         val b = getError(left).collect {
-          case n:NonEmptyList[_] => n.head == error || n.tail.contains(error)
-          case s:Seq[_] => s.contains(error)
+          case n:NonEmptyList[_]@unchecked => n.head == error || n.tail.contains(error)
+          case s:Seq[_]@unchecked => s.contains(error)
         }
         MatchResult(getError(left).contains(error), s"Expected error '$error'.", s"Did not expect error '$error'")
       }
