@@ -1,6 +1,6 @@
 package gondola
 
-import cats.data.ReaderT
+import cats.data.{ReaderT, StateT}
 import cats.Traverse
 
 import scala.concurrent.Future
@@ -80,8 +80,8 @@ private class ReaderActorTransformation[D[_], R[_], S](transform: => D ~> Reader
     ReaderT[FutureT[R, ?], S, A](s => FutureT[R, A](actorRef.ask(fa -> s).asInstanceOf[Future[R[A]]])(af.dispatcher, M ,T))
 }
 
-private class StateActorTransformation[D[_], R[_], S](initial: => S, name:Option[String])(implicit ST:StateTransformation[D, R, S], af:ActorRefFactory, timeout:Timeout, M:Monad[R], T:Traverse[R])
-  extends (D ~> FutureT[R, ?]) {
+private class StateActorTransformation[D[_], R[_], R2[_], S](initial: => S, transform:D ~> R, name:Option[String])(implicit af:ActorRefFactory, timeout:Timeout, ST:StateTransformation[R, R2, S], M:Monad[R2], T:Traverse[R2])
+  extends (D ~> FutureT[R2, ?]) {
   import akka.pattern._
 
   private val f = () => initial
@@ -92,7 +92,7 @@ private class StateActorTransformation[D[_], R[_], S](initial: => S, name:Option
         private var state:S = f()
         def receive = {
           case (d:D[_]@unchecked, s:S@unchecked) =>
-            sender ! M.map(ST(d, s)){r =>
+            sender ! M.map(ST(transform(d), s)){r =>
               state = r._1
               r._2
             }
@@ -103,7 +103,7 @@ private class StateActorTransformation[D[_], R[_], S](initial: => S, name:Option
   val actorRef = name.fold(af.actorOf(props)){n => af.actorOf(props, n)}
 
   def apply[A](fa: D[A]) =
-    FutureT[R, A](actorRef.ask(fa).asInstanceOf[Future[R[A]]])(af.dispatcher, M, T)
+    FutureT[R2, A](actorRef.ask(fa).asInstanceOf[Future[R2[A]]])(af.dispatcher, M, T)
 }
 
 
@@ -157,7 +157,11 @@ object ActorN {
   }
 
   object State {
+    def apply[D[_], R[_], R2[_], S](initial: => S, transform: => D ~> R)(implicit af:ActorRefFactory, timeout:Timeout, ST:StateTransformation[R, R2, S], M:Monad[R2], T:Traverse[R2]): D ~> FutureT[R2, ?] =
+      new StateActorTransformation[D, R, R2, S](initial, transform, None)
 
+    def apply[D[_], R[_], R2[_], S](initial: => S, transform: => D ~> R, name:String)(implicit af:ActorRefFactory, timeout:Timeout, ST:StateTransformation[R, R2, S], M:Monad[R2], T:Traverse[R2]): D ~> FutureT[R2, ?] =
+      new StateActorTransformation[D, R, R2, S](initial, transform, Some(name))
   }
 }
 
@@ -188,13 +192,13 @@ object ActorListener {
 
 object ActorListenerN {
 
-  def apply[M[_], N[_], E <: Event](listener: => EventListenerN[M, E])(implicit af: ActorRefFactory, transform: M ~> N): ActorRef =
+  def apply[M[_], N[_], E <: Event](listener: => EventListenerN[M, E])(implicit af: ActorRefFactory, T: M ~> N): ActorRef =
     af.actorOf(props(listener))
 
-  def apply[M[_], N[_], E <: Event](listener: => EventListenerN[M, E], name: String)(implicit af: ActorRefFactory, transform: M ~> N): ActorRef =
+  def apply[M[_], N[_], E <: Event](listener: => EventListenerN[M, E], name: String)(implicit af: ActorRefFactory, T: M ~> N): ActorRef =
     af.actorOf(props(listener), name)
 
-  def props[M[_], N[_], E <: Event](listener: => EventListenerN[M, E])(implicit transform: M ~> N) = {
+  def props[M[_], N[_], E <: Event](listener: => EventListenerN[M, E])(implicit T: M ~> N) = {
     val f = () => listener
     Props {
       new Actor {
@@ -202,7 +206,7 @@ object ActorListenerN {
 
         def receive = {
           case e: E@unchecked =>
-            lifted(e).map(transform.apply)
+            lifted(e).map(T.apply)
             ()
         }
       }
@@ -241,13 +245,13 @@ object ActorListenerN {
 
 //TODO: FIX THIS!!
 object Couple {
-  def apply[D[_], C[_] <: D[_], Q[_] <: D[_], R[_]](cTransform:C ~> R, qTransform:Q ~> R): (D ~> R) =
+  def apply[D[_], C[_] <: D[_], Q[_] <: D[_], R[_]](CT:C ~> R, QT:Q ~> R): (D ~> R) =
     new ~>[D, R] {
       def apply[A](fa: D[A]): R[A] = {
         if (fa.getClass.getInterfaces.exists(f => f.getSimpleName.contains("Command")))
-          cTransform(fa.asInstanceOf[C[A]])
+          CT(fa.asInstanceOf[C[A]])
         else
-          qTransform(fa.asInstanceOf[Q[A]])
+          QT(fa.asInstanceOf[Q[A]])
       }
     }
 }

@@ -436,5 +436,17 @@ trait FutureWriterErrorTransformations {
     }
 }
 
-
+object FutureWriterErrorTransformations
+  extends FutureWriterErrorTransformations
+    with FutureErrorTransformations
+    with FutureTransformations
+    with ErrorTransformations
+    with IdTransformations
+    with FutureWriterErrorMonad
+    with FutureErrorMonad
+    with FutureWriterMonad
+    with FutureMonad
+    with WriterMonad
+    with ErrorMonad
+    with IdMonad
 
