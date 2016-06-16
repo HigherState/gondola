@@ -45,18 +45,6 @@ trait MonadOps extends FlatMapSyntax with OptionOps with TraverseSyntax with ToF
     import VectorInstances._
     monad.sequence(v)
   }
-
-  implicit class VectorMonad[F[_], A](in: Vector[F[A]])(implicit monad: Monad[F]) {
-    import VectorInstances._
-    def sequence:F[Vector[A]] =
-      monad.sequence(in)
-  }
-
-  implicit class ListMonad[F[_], A](in: List[F[A]])(implicit monad: Monad[F]) {
-
-    def sequence:F[List[A]] =
-      monad.sequence(in)
-  }
 }
 
 trait MonadErrorOps extends MonadOps {

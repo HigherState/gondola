@@ -27,6 +27,9 @@ final case class FutureT[F[_], A](value:Future[F[A]])(implicit ec: ExecutionCont
   def mapF[G[_]:Monad:Traverse, B](f: F[A] => G[B]):FutureT[G, B] =
     FutureT[G, B](value.map(f))
 
+  def flatMapF[G[_]:Monad:Traverse, B](f: F[A] => FutureT[G, B]):FutureT[G, B] =
+    FutureT[G, B](value.flatMap(a => f(a).value))
+
   def flatMap[B](f: A ⇒ FutureT[F, B]): FutureT[F, B] =
     value match {
       case FulfilledFuture(a) ⇒
