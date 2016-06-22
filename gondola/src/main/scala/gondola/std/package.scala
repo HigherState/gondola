@@ -50,6 +50,10 @@ package object std {
 
   type ReaderFutureError[R, E, A] = ReaderT[FutureError[E, ?], R, A]
 
+  type ReaderFutureWriter[R, W, A] = ReaderT[FutureWriter[W, ?], R, A]
+
+  type ReaderFutureWriterError[R, W, E, A] = ReaderT[FutureWriterError[W, E, ?], R, A]
+
 
 
 }

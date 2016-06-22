@@ -89,20 +89,22 @@ private sealed abstract class MonadReaderErrorImpl[F[_], R, E](implicit override
 
 }
 
+private sealed abstract class MonadReaderWriterImpl[F[_], R, W](implicit override val M:MonadWriter[F, W]) extends MonadReaderImpl[F, R]()(M) with MonadWriter[ReaderT[F, R, ?], W] {
+
+  def writer[A](aw: (W, A)): ReaderT[F, R, A] =
+    Kleisli[F, R, A](_ => M.writer(aw))
+
+  def listen[A](fa: ReaderT[F, R, A]): ReaderT[F, R, (W, A)] =
+    Kleisli[F, R, (W, A)](r => M.listen(fa.run(r)))
+
+  def pass[A](fa: ReaderT[F, R, ((W) => W, A)]): ReaderT[F, R, A] =
+    Kleisli[F, R, A](r => M.pass(fa.run(r)))
+}
+
 trait ReaderWriterMonad {
 
   implicit def readerWriterMonad[R, W](implicit MW:MonadWriter[Writer[W, ?], W]):MonadReader[ReaderWriter[R, W, ?], R] with MonadWriter[ReaderWriter[R, W, ?], W] =
-    new MonadReaderImpl[Writer[W, ?], R]()(MW) with MonadWriter[ReaderWriter[R, W, ?], W] {
-
-      def writer[A](aw: (W, A)): ReaderWriter[R, W, A] =
-        Kleisli[Writer[W, ?], R, A](_ => MW.writer(aw))
-
-      def listen[A](fa: ReaderWriter[R, W, A]): ReaderWriter[R, W, (W, A)] =
-        Kleisli[Writer[W, ?], R, (W, A)](r => MW.listen(fa.run(r)))
-
-      def pass[A](fa: ReaderWriter[R, W, ((W) => W, A)]): ReaderWriter[R, W, A] =
-        Kleisli[Writer[W, ?], R, A](r => MW.pass(fa.run(r)))
-    }
+    new MonadReaderWriterImpl[Writer[W, ?], R, W]()(MW) {}
 }
 
 object ReaderWriterMonads
@@ -300,7 +302,7 @@ object ReaderWriterErrorTransformations
 trait ReaderFutureErrorMonad {
 
   implicit def readerFutureErrorMonad[R, E](implicit ec:ExecutionContext, M:MonadError[FutureError[E, ?], E]):MonadReader[ReaderFutureError[R, E, ?], R] with MonadError[ReaderFutureError[R, E, ?], E] =
-    new MonadReaderErrorImpl[FutureError[E, ?], R, E]()(M) with MonadError[ReaderFutureError[R, E, ?], E]
+    new MonadReaderErrorImpl[FutureError[E, ?], R, E]()(M) {}
 }
 
 object ReaderFutureErrorMonads
@@ -336,5 +338,148 @@ object ReaderFutureErrorTransforms
   with FutureMonad
   with ErrorMonad
   with IdMonad
+
+trait ReaderFutureWriterMonad {
+
+  implicit def readerFutureWriterMonad[R, W](implicit ec:ExecutionContext, M:MonadWriter[FutureWriter[W, ?], W]):MonadReader[ReaderFutureWriter[R, W, ?], R] with MonadWriter[ReaderFutureWriter[R, W, ?], W] =
+    new MonadReaderWriterImpl[FutureWriter[W, ?], R, W]()(M) {}
+}
+
+object ReaderFutureWriterMonads
+  extends ReaderFutureWriterMonad
+    with ReaderFutureMonad
+    with ReaderWriterMonad
+    with FutureWriterMonad
+    with ReaderMonad
+    with FutureMonad
+    with ErrorMonad
+    with IdMonad
+
+trait ReaderFutureWriterTransformations {
+
+  implicit def readerFutureWriter2FutureWriter[R, W]: ReaderTransformation[ReaderFutureWriter[R, W, ?], FutureWriter[W, ?], R] =
+    ReaderTransformationOps.dropReader[FutureWriter[W, ?], R]
+}
+
+object ReaderFutureWriterTransforms
+  extends ReaderFutureWriterTransformations
+    with ReaderFutureTransformations
+    with ReaderWriterTransformations
+    with FutureWriterTransformations
+    with ReaderTransformations
+    with FutureTransformations
+    with WriterTransformations
+    with IdTransformations
+    with ReaderFutureWriterMonad
+    with ReaderFutureMonad
+    with ReaderWriterMonad
+    with FutureWriterMonad
+    with ReaderMonad
+    with FutureMonad
+    with WriterMonad
+    with IdMonad
+
+trait ReaderFutureWriterErrorMonad {
+  implicit def readerFutureWriterError[R, W, E](implicit ec:ExecutionContext, MW:MonadError[FutureWriterError[W, E, ?], E] with MonadWriter[FutureWriterError[W, E, ?], W]):
+    MonadReader[ReaderFutureWriterError[R, W, E, ?], R] with MonadError[ReaderFutureWriterError[R, W, E, ?], E] with MonadWriter[ReaderFutureWriterError[R, W, E, ?], W] =
+      new MonadReaderErrorImpl[FutureWriterError[W, E, ?], R, E] with MonadWriter[ReaderFutureWriterError[R, W, E, ?], W] {
+        def writer[A](aw: (W, A)): ReaderFutureWriterError[R, W, E, A] =
+          Kleisli[FutureWriterError[W, E, ?], R, A](_ => MW.writer(aw))
+
+        def listen[A](fa: ReaderFutureWriterError[R, W, E, A]): ReaderFutureWriterError[R, W, E, (W, A)] =
+          Kleisli[FutureWriterError[W, E, ?], R, (W, A)](r => MW.listen(fa.run(r)))
+
+        def pass[A](fa: ReaderFutureWriterError[R, W, E, ((W) => W, A)]): ReaderFutureWriterError[R, W, E, A] =
+          Kleisli[FutureWriterError[W, E, ?], R, A](r => MW.pass(fa.run(r)))
+      }
+}
+
+object ReaderFutureWriterErrorMonads
+  extends ReaderFutureWriterErrorMonad
+  with ReaderFutureErrorMonad
+  with ReaderFutureWriterMonad
+  with ReaderWriterErrorMonad
+  with FutureWriterErrorMonad
+  with ReaderFutureMonad
+  with ReaderErrorMonad
+  with ReaderWriterMonad
+  with FutureErrorMonad
+  with FutureWriterMonad
+  with WriterErrorMonad
+  with ReaderMonad
+  with FutureMonad
+  with WriterMonad
+  with ErrorMonad
+  with IdMonad
+
+trait ReaderFutureWriterErrorTransformations {
+
+  implicit def id2ReaderFutureWriterError[R,W,E](implicit M:Monad[ReaderFutureWriterError[R, W, E, ?]]): Id ~> ReaderFutureWriterError[R, W, E, ?] =
+    IdTransformationOps.fromIdentity[ReaderFutureWriterError[R, W, E, ?]](M)
+
+  implicit def readerFutureWriterError2FutureWriterError[R, W, E]: ReaderTransformation[ReaderFutureWriterError[R, W, E, ?], FutureWriterError[W, E, ?], R] =
+    ReaderTransformationOps.dropReader[FutureWriterError[W, E, ?], R]
+
+  implicit def error2ReaderFutureWriterError[R, W, E](implicit T:Error[E, ?] ~> FutureWriterError[W, E, ?], M:Monad[FutureWriterError[W, E, ?]]):Error[E, ?] ~> ReaderFutureWriterError[R, W, E, ?] =
+    ReaderTransformationOps.toReaderTransform[Error[E, ?], FutureWriterError[W, E, ?], R](T, M)
+
+  implicit def writer2ReaderFutureWriterError[R, W, E](implicit T:Writer[W, ?] ~> FutureWriterError[W, E, ?], M:Monad[FutureWriterError[W, E, ?]]):Writer[W, ?] ~> ReaderFutureWriterError[R, W, E, ?] =
+    ReaderTransformationOps.toReaderTransform[Writer[W, ?], FutureWriterError[W, E, ?], R](T, M)
+
+  implicit def writerError2ReaderFutureWriterError[R, W, E](implicit T:WriterError[W, E, ?] ~> FutureWriterError[W, E, ?], M:Monad[FutureWriterError[W, E, ?]]):WriterError[W, E, ?] ~> ReaderFutureWriterError[R, W, E, ?] =
+    ReaderTransformationOps.toReaderTransform[WriterError[W, E, ?], FutureWriterError[W, E, ?], R](T, M)
+
+  implicit def readerError2ReaderFutureWriterError[R, W, E](implicit T:Error[E, ?] ~> FutureWriterError[W, E, ?]):ReaderError[R, E, ?] ~> ReaderFutureWriterError[R, W, E, ?] =
+    ReaderTransformationOps.fromReaderTransform[Error[E, ?], FutureWriterError[W, E, ?], R](T)
+
+  implicit def readerWriterError2ReaderFutureWriterError[R, W, E](implicit T:WriterError[W, E, ?] ~> FutureWriterError[W, E, ?]):ReaderWriterError[R, W, E, ?] ~> ReaderFutureWriterError[R, W, E, ?] =
+    ReaderTransformationOps.fromReaderTransform[WriterError[W, E, ?], FutureWriterError[W, E, ?], R](T)
+
+  implicit def future2ReaderFutureWriterError[R, W, E](implicit T:Future ~> FutureWriterError[W, E, ?], M:Monad[FutureWriterError[W, E, ?]]):Future ~> ReaderFutureWriterError[R, W, E, ?] =
+    ReaderTransformationOps.toReaderTransform[Future, FutureWriterError[W, E, ?], R](T, M)
+
+  implicit def futureError2ReaderFutureWriterError[R, W, E](implicit T:FutureError[E, ?] ~> FutureWriterError[W, E, ?], M:Monad[FutureWriterError[W, E, ?]]):FutureError[E, ?] ~> ReaderFutureWriterError[R, W, E, ?] =
+    ReaderTransformationOps.toReaderTransform[FutureError[E, ?], FutureWriterError[W, E, ?], R](T, M)
+
+  implicit def futureWriter2ReaderFutureWriterError[R, W, E](implicit T:FutureWriter[W, ?] ~> FutureWriterError[W, E, ?], M:Monad[FutureWriterError[W, E, ?]]):FutureWriter[W, ?] ~> ReaderFutureWriterError[R, W, E, ?] =
+    ReaderTransformationOps.toReaderTransform[FutureWriter[W, ?], FutureWriterError[W, E, ?], R](T, M)
+
+  implicit def futureWriterError2ReaderFutureWriterError[R, W, E](implicit T:FutureWriterError[W, E, ?] ~> FutureWriterError[W, E, ?], M:Monad[FutureWriterError[W, E, ?]]):FutureWriterError[W, E, ?] ~> ReaderFutureWriterError[R, W, E, ?] =
+    ReaderTransformationOps.toReaderTransform[FutureWriterError[W, E, ?], FutureWriterError[W, E, ?], R](T, M)
+}
+
+object ReaderFutureWriterErrorTransformations
+  extends ReaderFutureWriterErrorTransformations
+    with ReaderFutureErrorTransformations
+    with ReaderFutureWriterTransformations
+    with ReaderWriterErrorTransformations
+    with FutureWriterErrorTransformations
+    with ReaderFutureTransformations
+    with ReaderErrorTransformations
+    with ReaderWriterTransformations
+    with FutureErrorTransformations
+    with FutureWriterTransformations
+    with WriterErrorTransformations
+    with ReaderTransformations
+    with FutureTransformations
+    with WriterTransformations
+    with ErrorTransformations
+    with IdTransformations
+    with ReaderFutureWriterErrorMonad
+    with ReaderFutureErrorMonad
+    with ReaderFutureWriterMonad
+    with ReaderWriterErrorMonad
+    with FutureWriterErrorMonad
+    with ReaderFutureMonad
+    with ReaderErrorMonad
+    with ReaderWriterMonad
+    with FutureErrorMonad
+    with FutureWriterMonad
+    with WriterErrorMonad
+    with ReaderMonad
+    with FutureMonad
+    with WriterMonad
+    with ErrorMonad
+    with IdMonad
 
 

@@ -1,6 +1,6 @@
 package gondola.std
 
-import cats.data.{Xor, XorT}
+import cats.data.Xor
 import cats._
 import gondola.{WriterTransformation, ~>}
 
@@ -8,7 +8,6 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{CanAwait, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
-
 
 final case class FutureT[F[_], A](value:Future[F[A]])(implicit ec: ExecutionContext, M:Monad[F], T:Traverse[F]) {
 
