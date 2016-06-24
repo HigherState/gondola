@@ -91,8 +91,8 @@ private class StateActorTransformation[D[_], R[_], R2[_], S](initial: => S, tran
       new Actor {
         private var state:S = f()
         def receive = {
-          case (d:D[_]@unchecked, s:S@unchecked) =>
-            sender ! M.map(ST(transform(d), s)){r =>
+          case d:D[_]@unchecked =>
+            sender ! M.map(ST(transform(d), state)){r =>
               state = r._1
               r._2
             }
