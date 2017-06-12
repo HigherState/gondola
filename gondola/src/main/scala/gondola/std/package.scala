@@ -1,6 +1,6 @@
 package gondola
 
-import cats.data.{ReaderT, WriterT, Xor, XorT}
+import cats.data.{ReaderT, WriterT}
 
 import scala.concurrent.Future
 
@@ -8,7 +8,7 @@ package object std {
 
   type Id[A] = A
 
-  type Error[E, A] = Xor[E, A]
+  type Error[E, A] = Either[E, A]
 
   type State[S, A] = cats.data.State[S, A]
 

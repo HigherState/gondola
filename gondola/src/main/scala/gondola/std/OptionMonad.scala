@@ -2,6 +2,8 @@ package gondola.std
 
 import cats._
 
+import scala.annotation.tailrec
+
 /**
   * Created by jamie.pullar on 06/06/2016.
   */
@@ -14,6 +16,14 @@ trait OptionMonad {
 
       def flatMap[A, B](fa: Option[A])(f: (A) => Option[B]): Option[B] =
         fa.flatMap(f)
+
+      @tailrec
+      def tailRecM[A, B](a: A)(f: (A) => Option[Either[A, B]]): Option[B] =
+        f(a) match {
+          case Some(Left(aa)) => tailRecM(aa)(f)
+          case Some(Right(b)) => Some(b)
+          case _ => None
+        }
     }
 
   implicit val optionTraverse:Traverse[Option] = new Traverse[Option] {

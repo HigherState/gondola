@@ -1,7 +1,7 @@
 package gondola.std
 
 import cats._
-import cats.data.{WriterT, Xor}
+import cats.data.WriterT
 import gondola.{StateTransformation, WriterTransformation, ~>}
 
 object Writer {
@@ -13,27 +13,11 @@ object Writer {
 
 trait WriterMonad {
 
-  implicit def writerMonad[W:Monoid] = new MonadWriter[Writer[W, ?], W] {
+  implicit def writerMonad[W:Monoid]:MonadWriter[Writer[W, ?], W] =
+    WriterT.catsDataMonadWriterForWriterT[Id, W]
 
-    def flatMap[A, B](fa: Writer[W, A])(f: (A) => Writer[W, B]): Writer[W, B] =
-      fa.flatMap(f)
-
-    def writer[A](aw: (W, A)): Writer[W, A] =
-      cats.data.WriterT[Id, W, A](aw)
-
-    def listen[A](fa: Writer[W, A]): Writer[W, (W, A)] =
-      pure(fa.run)
-
-    def pass[A](fa: Writer[W, ((W) => W, A)]): Writer[W, A] = {
-      val (l, (f,a)) = fa.run
-      writer(f(l) -> a)
-    }
-
-    def pure[A](x: A): Writer[W, A] =
-      WriterT.value[Id,W,A](x)
-  }
-
-  implicit def writerTraverse[W:Monoid]:Traverse[Writer[W, ?]] = new Traverse[Writer[W, ?]] {
+  implicit def writerTraverse[W:Monoid]:Traverse[Writer[W, ?]] =
+    new Traverse[Writer[W, ?]] {
     def traverse[G[_], A, B](fa: Writer[W, A])(f: (A) => G[B])(implicit A: Applicative[G]): G[Writer[W, B]] = {
       val (w, a) = fa.run
       A.map(f(a))(a => writerMonad.writer(w -> a))
@@ -98,6 +82,8 @@ trait WriterErrorMonad {
   implicit def writerErrorMonad[W, E](implicit ME:MonadError[Error[E, ?], E], W:Monoid[W]) =
     new MonadError[WriterError[W, E, ?], E] with MonadWriter[WriterError[W, E, ?], W]{
 
+      private val inst = WriterT.catsDataFlatMapForWriterT1[Error[E,?], W]
+
       def raiseError[A](e: E): WriterError[W, E, A] =
         cats.data.WriterT[Error[E,?],W,A](ME.raiseError[(W,A)](e))
 
@@ -118,6 +104,9 @@ trait WriterErrorMonad {
 
       def pass[A](fa: WriterError[W, E, ((W) => W, A)]): WriterError[W, E, A] =
         cats.data.WriterT[Error[E,?],W, A](fa.run.map{ case (l, (f, a)) => f(l) -> a})
+
+      def tailRecM[A, B](a: A)(f: (A) => WriterError[W, E, Either[A, B]]): WriterError[W, E, B] =
+        inst.tailRecM(a)(f)
     }
 
   implicit def writerErrorTraverse[W, E](implicit MW:MonadWriter[WriterError[W, E, ?], W]):Traverse[WriterError[W, E, ?]] =
@@ -125,17 +114,17 @@ trait WriterErrorMonad {
 
       def traverse[G[_], A, B](fa: WriterError[W, E, A])(f: (A) => G[B])(implicit A: Applicative[G]): G[WriterError[W, E, B]] =
         fa.run match {
-          case Xor.Left(_) =>
+          case Left(_) =>
             A.pure(fa.asInstanceOf[WriterError[W, E, B]])
-          case Xor.Right((w, a)) =>
+          case Right((w, a)) =>
             A.map(f(a))(r => MW.writer(w -> r))
         }
 
       def foldLeft[A, B](fa: WriterError[W, E, A], b: B)(f: (B, A) => B): B =
-        fa.run.foldLeft(b)( (c, p) => f(c, p._2))
+        fa.run.fold(_ => b, p => f(b, p._2))
 
       def foldRight[A, B](fa: WriterError[W, E, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
-        fa.run.foldRight(lb)( (c, p) => f(c._2, p))
+        fa.run.fold(_ => lb, p => f(p._2, lb))
     }
 }
 
@@ -180,6 +169,8 @@ trait WriterStateMonad {
   implicit def writerStateMonad[W, S](implicit MS:MonadState[State[S, ?], S], W:Monoid[W]):MonadState[WriterState[W, S, ?], S] with MonadWriter[WriterState[W, S, ?], W] =
     new MonadState[WriterState[W, S, ?], S] with MonadWriter[WriterState[W, S, ?], W] {
 
+      private val inst = WriterT.catsDataFlatMapForWriterT1[State[S,?], W]
+
       def writer[A](aw: (W, A)): WriterState[W, S, A] =
         cats.data.WriterT[State[S,?],W,A](MS.pure(aw))
 
@@ -200,6 +191,9 @@ trait WriterStateMonad {
 
       def flatMap[A, B](fa: WriterState[W, S, A])(f: (A) => WriterState[W, S, B]): WriterState[W, S, B] =
         fa.flatMap(f)
+
+      def tailRecM[A, B](a: A)(f: (A) => WriterState[W, S, Either[A, B]]): WriterState[W, S, B] =
+        inst.tailRecM(a)(f)
     }
 }
 
@@ -250,6 +244,8 @@ trait WriterStateErrorMonad {
     :MonadState[WriterStateError[W, S, E, ?], S] with MonadWriter[WriterStateError[W, S, E, ?], W] with MonadError[WriterStateError[W, S, E, ?], E] =
     new MonadState[WriterStateError[W, S, E, ?], S] with MonadWriter[WriterStateError[W, S, E, ?], W] with MonadError[WriterStateError[W, S, E, ?], E] {
 
+      private val inst = WriterT.catsDataFlatMapForWriterT1[StateError[S, E, ?], W]
+
       def get: WriterStateError[W, S, E, S] =
         cats.data.WriterT[StateError[S, E, ?],W,S](MSE.get.map(W.empty -> _)(M))
 
@@ -276,6 +272,9 @@ trait WriterStateErrorMonad {
 
       def pure[A](x: A): WriterStateError[W, S, E, A] =
         WriterT.value[StateError[S, E, ?],W,A](x)
+
+      def tailRecM[A, B](a: A)(f: (A) => WriterStateError[W, S, E, Either[A, B]]): WriterStateError[W, S, E, B] =
+        inst.tailRecM(a)(f)
     }
 }
 

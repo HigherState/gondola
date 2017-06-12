@@ -1,11 +1,11 @@
 package gondola
 
 import cats.Functor.ToFunctorOps
-import cats.std.list._
+import cats.instances.list._
 import cats.syntax.{FlatMapSyntax, TraverseSyntax}
 
 
-object VectorInstances extends cats.std.VectorInstances
+object VectorInstances extends cats.instances.VectorInstances
 
 trait OptionOps {
   implicit class OptionExt[T](value:Option[T]) {

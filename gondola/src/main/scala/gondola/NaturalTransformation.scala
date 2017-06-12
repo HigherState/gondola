@@ -1,7 +1,7 @@
 package gondola
 
 import cats._
-import cats.data.{Coproduct, Xor}
+import cats.data.Coproduct
 
 //Cannot Pimp a Natural transformation. had to recreate
 trait ~>[F[_], G[_]] {
@@ -20,8 +20,8 @@ trait ~>[F[_], G[_]] {
   def or[H[_]](h: H ~> G): Coproduct[F, H, ?] ~> G =
     new (Coproduct[F, H, ?] ~> G) {
       def apply[A](fa: Coproduct[F, H, A]): G[A] = fa.run match {
-        case Xor.Left(ff) => self(ff)
-        case Xor.Right(gg) => h(gg)
+        case Left(ff) => self(ff)
+        case Right(gg) => h(gg)
       }
     }
 

@@ -1,6 +1,5 @@
 package gondola.std
 
-import cats.data.Xor
 import cats._
 import gondola.{WriterTransformation, ~>}
 
@@ -140,9 +139,6 @@ trait FutureMonad {
       def pure[A](x: A): Future[A] =
         FulfilledFuture(x)
 
-      override def pureEval[A](x: Eval[A]): Future[A] =
-        pure(x.value)
-
       def flatMap[A, B](fa: Future[A])(f: A => Future[B]): Future[B] =
         fa.flatMap(f)
 
@@ -154,8 +150,8 @@ trait FutureMonad {
 
       override def handleError[A](fea: Future[A])(f: Throwable => A): Future[A] = fea.recover { case t => f(t) }
 
-      override def attempt[A](fa: Future[A]): Future[Throwable Xor A] =
-        (fa map Xor.right) recover { case NonFatal(t) => Xor.left(t) }
+      override def attempt[A](fa: Future[A]): Future[Throwable Either A] =
+        (fa map Right.apply) recover { case NonFatal(t) => Left(t) }
 
       override def recover[A](fa: Future[A])(pf: PartialFunction[Throwable, A]): Future[A] = fa.recover(pf)
 
@@ -164,6 +160,13 @@ trait FutureMonad {
       override def map[A, B](fa: Future[A])(f: A => B): Future[B] = fa.map(f)
 
       def coflatMap[A, B](fa: Future[A])(f: Future[A] => B): Future[B] = Future(f(fa))
+
+      final def tailRecM[B, C](b: B)(f: B => Future[Either[B, C]]): Future[C] =
+        f(b).flatMap {
+          case Left(b1) => tailRecM(b1)(f)
+          case Right(c) => Future.successful(c)
+        }
+
     }
 
   implicit def futureTApplicative[F[_]](implicit ec: ExecutionContext, F:Monad[F], T:Traverse[F]):Applicative[FutureT[F, ?]] =
@@ -247,13 +250,20 @@ trait FutureWriterMonad {
       def handleErrorWith[A](fa: FutureWriter[W, A])(f: (Throwable) => FutureWriter[W, A]): FutureWriter[W, A] =
         ???
 
-      def raiseError[A](e: Throwable): FutureWriter[W, A] = ???
+      def raiseError[A](e: Throwable): FutureWriter[W, A] =
+        ???
 
       def pure[A](x: A): FutureWriter[W, A] =
         FutureT.fast[Writer[W, ?], A](x)
 
       def flatMap[A, B](fa: FutureWriter[W, A])(f: (A) => FutureWriter[W, B]): FutureWriter[W, B] =
         fa.flatMap(f)
+
+      final def tailRecM[B, C](b: B)(f: B => FutureWriter[W,Either[B, C]]): FutureWriter[W, C] =
+        f(b).flatMap {
+          case Left(b1) => tailRecM(b1)(f)
+          case Right(c) => pure(c)
+        }
     }
 }
 
@@ -306,8 +316,8 @@ trait FutureErrorMonad  {
       def handleErrorWith[A](fa: FutureError[E, A])(f: (E) => FutureError[E, A]): FutureError[E, A] =
         FutureT[Error[E, ?], A] {
           fa.value.flatMap[Error[E, A]] {
-            case Xor.Left(e) => f(e).value
-            case Xor.Right(a) => FulfilledFuture(ME.pure(a))
+            case Left(e) => f(e).value
+            case Right(a) => FulfilledFuture(ME.pure(a))
           }(ec)
         }(ec, ME, T)
 
@@ -316,6 +326,12 @@ trait FutureErrorMonad  {
 
       def flatMap[A, B](fa: FutureError[E, A])(f: (A) => FutureError[E, B]): FutureError[E, B] =
         fa.flatMap(f)
+
+      final def tailRecM[B, C](b: B)(f: B => FutureError[E,Either[B, C]]): FutureError[E, C] =
+        f(b).flatMap {
+          case Left(b1) => tailRecM(b1)(f)
+          case Right(c) => pure(c)
+        }
     }
 }
 
@@ -375,8 +391,8 @@ trait FutureWriterErrorMonad {
         FutureT[WriterError[W, E, ?], A] {
           fa.value.flatMap[WriterError[W, E, A]] { r =>
             r.run match {
-              case Xor.Left(e) => f(e).value
-              case Xor.Right(a) => FulfilledFuture(MWE.writer(a))
+              case Left(e) => f(e).value
+              case Right(a) => FulfilledFuture(MWE.writer(a))
             }
           }(ec)
         }(ec, MWE, T)
@@ -389,7 +405,10 @@ trait FutureWriterErrorMonad {
 
       def flatMap[A, B](fa: FutureWriterError[W, E, A])(f: (A) => FutureWriterError[W, E, B]): FutureWriterError[W, E, B] =
         fa.flatMap(f)
-  }
+
+      def tailRecM[A, B](a: A)(f: (A) => FutureWriterError[W, E, Either[A, B]]): FutureWriterError[W, E, B] =
+        ???
+    }
 }
 
 object FutureWriterErrorMonads

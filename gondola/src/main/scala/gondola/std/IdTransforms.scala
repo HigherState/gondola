@@ -3,13 +3,22 @@ package gondola.std
 import cats.{Applicative, Eval, Functor, Monad, Traverse}
 import gondola.~>
 
+import scala.annotation.tailrec
+
 trait IdMonad {
-  implicit val idMonad = new Monad[Id] {
+  implicit val idMonad:Monad[Id] = new Monad[Id] {
     def flatMap[A, B](fa: Id[A])(f: (A) => Id[B]): Id[B] =
       f(fa)
 
     def pure[A](x: A): Id[A] =
       x
+
+    @tailrec
+    def tailRecM[A, B](a: A)(f: (A) => Id[Either[A, B]]): Id[B] =
+      f(a) match {
+        case Left(aa) => tailRecM(aa)(f)
+        case Right(b) => b
+      }
   }
 }
 

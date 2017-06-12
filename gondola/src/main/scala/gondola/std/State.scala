@@ -6,7 +6,7 @@ import gondola.{StateTransformation, ~>}
 
 trait StateMonad {
   implicit def stateMonad[S]:MonadState[State[S, ?], S] =
-    cats.data.StateT.stateTMonadState[Eval, S]
+    cats.data.StateT.catsDataMonadStateForStateT[Eval, S]
 }
 
 object StateMonads
@@ -55,6 +55,9 @@ trait StateErrorMonad  {
 
   implicit def stateErrorMonad[S, E](implicit M:MonadError[Error[E, ?], E]):MonadState[StateError[S, E, ?], S] with MonadError[StateError[S, E, ?], E] =
     new MonadState[StateError[S, E, ?], S] with MonadError[StateError[S, E, ?], E] {
+
+      private val inst = StateT.catsDataMonadForStateT[Error[E, ?], S]
+
       def get: StateError[S, E, S] =
         StateT[Error[E, ?], S, S](s => M.pure(s -> s))
 
@@ -72,6 +75,9 @@ trait StateErrorMonad  {
 
       def flatMap[A, B](fa: StateError[S, E, A])(f: (A) => StateError[S, E, B]): StateError[S, E, B] =
         fa.flatMap(f)(M)
+
+      def tailRecM[A, B](a: A)(f: (A) => StateError[S, E, Either[A, B]]): StateError[S, E, B] =
+        inst.tailRecM(a)(f)
     }
 }
 

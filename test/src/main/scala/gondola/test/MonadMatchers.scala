@@ -1,7 +1,7 @@
 package gondola.test
 
-import cats.{MonadWriter, MonadError, Eval}
-import cats.data.{NonEmptyList, XorT, WriterT, Xor}
+import cats.{Eval, MonadError, MonadWriter}
+import cats.data.{EitherT, NonEmptyList, WriterT}
 import gondola.std._
 import org.scalatest.matchers.{MatchResult, Matcher}
 
@@ -78,13 +78,13 @@ trait MonadMatchers {
 
   private def getError(a:Any):Option[Any] =
     a match {
-      case Xor.Left(x) => Some(x)
-      case x:XorT[_,_,_] => getError(x.value)
+      case Left(x) => Some(x)
+      case x:EitherT[_,_,_] => getError(x.value)
       case w:WriterT[_, _, _]@unchecked =>
         val r = w.run
         r match {
-          case Xor.Left(e) => Some(e)
-          case Xor.Right((w, a)) => None
+          case Left(e) => Some(e)
+          case Right((w, a)) => None
           case _ => None
         }
       case f:FutureT[_,_]@unchecked =>
@@ -96,7 +96,7 @@ trait MonadMatchers {
     a match {
       case w:WriterT[_, _, _] =>
         w.run match {
-          case Xor.Right((w, a)) => Some(w)
+          case Right((w, a)) => Some(w)
           case e:Eval[(_, _)]@unchecked => Some(e.value._1)
           case (w, a) => Some(w)
         }
@@ -109,12 +109,12 @@ trait MonadMatchers {
       case w:WriterT[_, _, _] =>
         val r = w.run
         r match {
-          case Xor.Right((w, a)) => getValue(a)
+          case Right((w, a)) => getValue(a)
           case (_, a) => Some(a)
           case _ => None
         }
-      case Xor.Right(x) => getValue(x)
-      case Xor.Left(_) => None
+      case Right(x) => getValue(x)
+      case Left(_) => None
       case f:FutureT[_, _]@unchecked =>
         getLog(Await.result(f.value, 5.seconds))
       case e:Eval[_] => Some(e.value)

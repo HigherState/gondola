@@ -2,8 +2,8 @@ import sbt.Keys._
 
 lazy val buildSettings = Seq(
   organization       := "io.higherState",
-  scalaVersion       := "2.11.8",
-  version            := "0.2.1",
+  scalaVersion       := "2.12.2",
+  version            := "0.3.0",
   javacOptions      ++= Seq("-target", "1.8", "-source", "1.8", "-Xlint:deprecation"),
   scalacOptions     ++= Seq(
     "-deprecation",
@@ -12,7 +12,6 @@ lazy val buildSettings = Seq(
     "-language:implicitConversions", "-language:higherKinds", "-language:postfixOps", "-language:reflectiveCalls",
     "-unchecked",
     "-Xfatal-warnings",
-    "-Yinline-warnings",
     "-Yno-adapted-args",
     "-Ywarn-dead-code",
     "-Ywarn-value-discard",
@@ -20,13 +19,13 @@ lazy val buildSettings = Seq(
   )
 )
 
-lazy val reflect = "org.scala-lang" % "scala-reflect" % "2.11.8"
-lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.0"
-lazy val cats = "org.typelevel" %% "cats" % "0.5.0"
+lazy val reflect = "org.scala-lang" % "scala-reflect" % "2.12.2"
+lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.2"
+lazy val cats = "org.typelevel" %% "cats" % "0.9.0"
 lazy val akka = "com.typesafe.akka" %% "akka-actor" % "2.5.2"
-lazy val scalatestTest = "org.scalatest" %% "scalatest" % "2.2.6"  % "test"
-lazy val scalatest = "org.scalatest" %% "scalatest" % "2.2.6"
-lazy val kindplugin = compilerPlugin("org.spire-math" %% "kind-projector" % "0.7.1")
+lazy val scalatestTest = "org.scalatest" %% "scalatest" % "3.0.1"  % "test"
+lazy val scalatest = "org.scalatest" %% "scalatest" % "3.0.1"
+lazy val kindplugin = compilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4")
 
 lazy val gondola = project
   .settings(moduleName := "gondola")

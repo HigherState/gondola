@@ -1,6 +1,6 @@
 package gondola.std
 
-import cats.{Monad, MonadError, MonadReader, MonadWriter}
+import cats.{FlatMap, Monad, MonadError, MonadReader, MonadWriter}
 import cats.data._
 import gondola.{ReaderTransformation, WriterTransformation, ~>}
 
@@ -20,7 +20,7 @@ object Reader {
 trait ReaderMonad {
 
   implicit def readerMonad[R]:MonadReader[Reader[R, ?], R] =
-    Kleisli.kleisliIdMonadReader[R]
+    Kleisli.catsDataMonadReaderForKleisliId[R]
 }
 
 object ReaderMonads
@@ -87,6 +87,8 @@ private sealed abstract class MonadReaderErrorImpl[F[_], R, E](implicit override
   def handleErrorWith[A](fa: ReaderT[F, R, A])(f: (E) => ReaderT[F, R, A]): ReaderT[F, R, A] =
     Kleisli[F, R, A](r => M.handleErrorWith(fa.run(r))(e => f(e).run(r)))
 
+  def tailRecM[B, C](b: B)(f: (B) => ReaderT[F, R, Either[B, C]]): ReaderT[F, R, C] =
+    Kleisli[F, R, C]({ a => FlatMap[F].tailRecM(b) { f(_).run(a) } })
 }
 
 private sealed abstract class MonadReaderWriterImpl[F[_], R, W](implicit override val M:MonadWriter[F, W]) extends MonadReaderImpl[F, R]()(M) with MonadWriter[ReaderT[F, R, ?], W] {
@@ -99,6 +101,9 @@ private sealed abstract class MonadReaderWriterImpl[F[_], R, W](implicit overrid
 
   def pass[A](fa: ReaderT[F, R, ((W) => W, A)]): ReaderT[F, R, A] =
     Kleisli[F, R, A](r => M.pass(fa.run(r)))
+
+  def tailRecM[B, C](b: B)(f: (B) => ReaderT[F, R, Either[B, C]]): ReaderT[F, R, C] =
+    Kleisli[F, R, C]({ a => FlatMap[F].tailRecM(b) { f(_).run(a) } })
 }
 
 trait ReaderWriterMonad {

@@ -4,7 +4,7 @@ import cats.{MonadError, MonadState}
 import cats.data.WriterTFunctions
 import gondola._
 
-object ImplicitMonadTest extends WriterTFunctions {
+object ImplicitMonadTest  {
 
   import Monad._
 

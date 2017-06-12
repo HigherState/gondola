@@ -7,7 +7,7 @@ import gondola.~>
 trait ErrorMonad {
 
   implicit def errorMonad[E]:MonadError[Error[E, ?], E] with Traverse[Error[E, ?]] =
-    cats.data.Xor.xorInstances[E]
+    cats.instances.either.catsStdInstancesForEither[E]
 
 }
 
