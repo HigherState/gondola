@@ -16,7 +16,7 @@ class MonadWordsTest extends FunSuite with Matchers with MonadMatchers {
 
   test("fails with") {
     failWith[std.Error[String, ?], String]("fails") should errorWith("fails")
-    failWith[std.WriterError[Vector[String], String, ?], String]("fails") should error
+    failWith[std.WriterError[Vector[String], String, ?], String]("fails") should invalidate
   }
 
   test("log with") {
@@ -28,8 +28,8 @@ class MonadWordsTest extends FunSuite with Matchers with MonadMatchers {
     withValue[std.Writer[Vector[String], ?], Int](4) should haveValue(4)
     withValue[std.Error[String, ?], Int](4) should haveValue(4)
     withValue[std.WriterError[Vector[String], String, ?], Int](4) should haveValue(4)
-    withValue[std.Error[String, ?], Int](4) should succeed
-    withValue[std.WriterError[Vector[String], String, ?], Int](4) should succeed
+    withValue[std.Error[String, ?], Int](4) should validate
+    withValue[std.WriterError[Vector[String], String, ?], Int](4) should validate
   }
 
   def failWith[M[_], E](message:E)(implicit M:MonadError[M, E]):M[_] =

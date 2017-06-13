@@ -10,14 +10,14 @@ import scala.concurrent.Await
 trait MonadMatchers {
   import concurrent.duration._
 
-  def error:Matcher[Any] =
+  def invalidate:Matcher[Any] =
     new Matcher[Any] {
       def apply(left: Any): MatchResult = {
         MatchResult(getError(left).isDefined, "Expected invalid value.", "Unexpected invalid value")
       }
     }
 
-  def succeed:Matcher[Any] =
+  def validate:Matcher[Any] =
     new Matcher[Any] {
       def apply(left: Any): MatchResult = {
         MatchResult(getValue(left).isDefined, "Expected valid value.", "Unexpected valid value")
