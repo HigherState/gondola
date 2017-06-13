@@ -111,8 +111,7 @@ private case class FulfilledFuture[A](a: A) extends Future[A] {
       case util.Failure(e) => ErrorFuture(e)
     }
   def transformWith[S](f: scala.util.Try[A] => scala.concurrent.Future[S])(implicit executor: scala.concurrent.ExecutionContext): scala.concurrent.Future[S] =
-    ???
-    //FutureT(this).transformWith(f).value
+    f(Success(a))
 }
 private case class ErrorFuture(error: Throwable) extends Future[Nothing] {
   def value = Some(Failure(error))
@@ -127,8 +126,7 @@ private case class ErrorFuture(error: Throwable) extends Future[Nothing] {
     }
 
   def transformWith[S](f: scala.util.Try[Nothing] => scala.concurrent.Future[S])(implicit executor: scala.concurrent.ExecutionContext): scala.concurrent.Future[S] =
-    ???
-    //FutureT(this).transformWith(f).value
+    f(Failure(error))
 }
 
 
@@ -406,8 +404,11 @@ trait FutureWriterErrorMonad {
       def flatMap[A, B](fa: FutureWriterError[W, E, A])(f: (A) => FutureWriterError[W, E, B]): FutureWriterError[W, E, B] =
         fa.flatMap(f)
 
-      def tailRecM[A, B](a: A)(f: (A) => FutureWriterError[W, E, Either[A, B]]): FutureWriterError[W, E, B] =
-        ???
+      final def tailRecM[B, C](b: B)(f: B => FutureWriterError[W, E, Either[B, C]]): FutureWriterError[W, E, C] =
+        f(b).flatMap {
+          case Left(b1) => tailRecM(b1)(f)
+          case Right(c) => pure(c)
+        }
     }
 }
 
