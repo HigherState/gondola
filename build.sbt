@@ -3,7 +3,7 @@ import sbt.Keys._
 lazy val buildSettings = Seq(
   organization       := "io.higherState",
   scalaVersion       := "2.12.2",
-  version            := "0.3.0",
+  version            := "0.3.1",
   javacOptions      ++= Seq("-target", "1.8", "-source", "1.8", "-Xlint:deprecation"),
   scalacOptions     ++= Seq(
     "-deprecation",

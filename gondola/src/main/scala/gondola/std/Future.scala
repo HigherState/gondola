@@ -224,6 +224,13 @@ trait FutureTransformations {
 
   implicit val futureT2futureT: FutureT[Id, ?] ~> FutureT[Id, ?] =
     IdTransformationOps.identity[FutureT[Id, ?]]
+
+  implicit val futureT2future: FutureT[Id, ?] ~> Future =
+    new (FutureT[Id, ?] ~> Future) {
+      def apply[A](fa: FutureT[Id, A]): Future[A] = {
+        fa.value
+      }
+    }
 }
 
 object FutureTransfomations

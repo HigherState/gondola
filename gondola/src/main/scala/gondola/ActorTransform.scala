@@ -241,6 +241,32 @@ object ActorListenerN {
     }
   }
 
+  object State {
+    def apply[M[_], N[_], S, E <: Event](initial: => S, listener: => EventListenerN[M, E])(implicit af: ActorRefFactory, timeout: Timeout, ST: StateTransformation[M, N, S], M: Monad[N]) = {
+
+      import akka.pattern._
+      val f = () => initial
+      val l = () => listener
+
+      Props {
+        new Actor {
+          private var state: S = f()
+          private val lifted = l().handle.lift
+
+          def receive = {
+            case e: E@unchecked =>
+              lifted(e).map{v =>
+                M.map(ST(v, state)) { r =>
+                  state = r._1
+                  r._2
+                }
+              }
+              ()
+          }
+        }
+      }
+    }
+  }
 }
 
 //TODO: FIX THIS!!

@@ -214,7 +214,7 @@ trait WriterStateTransformations  {
   implicit def writer2writerState[W, S](implicit T: Id ~> State[S, ?]):Writer[W, ?] ~> WriterState[W, S, ?] =
     WriterTransformationOps.fromWriterTransformation[Id, State[S, ?], W](T)
 
-  implicit def error2WriterState[W, S](implicit N:Monad[State[S, ?]], W:Monoid[W], T: State[S, ?] ~> State[S, ?]):State[S, ?] ~> WriterState[W, S, ?] =
+  implicit def state2WriterState[W, S](implicit N:Monad[State[S, ?]], W:Monoid[W], T: State[S, ?] ~> State[S, ?]):State[S, ?] ~> WriterState[W, S, ?] =
     WriterTransformationOps.toWriterTransformation[State[S, ?], State[S, ?], W](N, W, T)
 
   implicit def writerState2Writer[W, S](implicit MW:MonadWriter[Writer[W, ?], W]): StateTransformation[WriterState[W, S, ?], Writer[W, ?], S] =
