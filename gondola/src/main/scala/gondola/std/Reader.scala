@@ -425,6 +425,9 @@ trait ReaderFutureWriterErrorTransformations {
   implicit def reader2ReaderFutureWriterError[R, W, E](implicit T:Id ~> FutureWriterError[W, E, ?]):Reader[R, ?] ~> ReaderFutureWriterError[R, W, E, ?] =
     ReaderTransformationOps.fromReaderTransform[Id, FutureWriterError[W, E, ?], R](T)
 
+  implicit def readerFuture2ReaderFutureWriterError[R, W, E](implicit T:Future ~> FutureWriterError[W, E, ?]):ReaderFuture[R, ?] ~> ReaderFutureWriterError[R, W, E, ?] =
+    ReaderTransformationOps.fromReaderTransform[Future, FutureWriterError[W, E, ?], R](T)
+
   implicit def readerFutureWriterError2FutureWriterError[R, W, E]: ReaderTransformation[ReaderFutureWriterError[R, W, E, ?], FutureWriterError[W, E, ?], R] =
     ReaderTransformationOps.dropReader[FutureWriterError[W, E, ?], R]
 
