@@ -1,7 +1,7 @@
 package gondola
 
 import cats.data.{ReaderT, StateT}
-import cats.Traverse
+import cats.{Id, Traverse}
 
 import scala.concurrent.Future
 import akka.actor._
@@ -191,12 +191,25 @@ object ActorListener {
 }
 
 object ActorListenerN {
+  import akka.pattern._
 
   def apply[M[_], N[_], E <: Event](listener: => EventListenerN[M, E])(implicit af: ActorRefFactory, T: M ~> N): ActorRef =
     af.actorOf(props(listener))
 
   def apply[M[_], N[_], E <: Event](listener: => EventListenerN[M, E], name: String)(implicit af: ActorRefFactory, T: M ~> N): ActorRef =
     af.actorOf(props(listener), name)
+
+  def selection[D, R[_]](actorSelection:ActorSelection)(implicit af:ActorRefFactory, timeout:Timeout):ActorRef = {
+    af.actorOf(Props {
+      new Actor {
+        def receive = {
+          case msg: D@unchecked =>
+            actorSelection.tell(msg, sender())
+            ()
+        }
+      }
+    })
+  }
 
   def props[M[_], N[_], E <: Event](listener: => EventListenerN[M, E])(implicit T: M ~> N) = {
     val f = () => listener
