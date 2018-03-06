@@ -3,6 +3,9 @@ package gondola
 import cats.Functor.ToFunctorOps
 import cats.instances.list._
 import cats.syntax.{FlatMapSyntax, TraverseSyntax}
+import gondola.std.MonadAsync
+
+import scala.concurrent.Future
 
 
 object VectorInstances extends cats.instances.VectorInstances
@@ -94,6 +97,13 @@ trait MonadReaderOps extends MonadOps {
   /** Modify the environment */
   def local[F[_], R, A](f: R => R)(fa: F[A])(implicit M:cats.MonadReader[F, R]): F[A] =
     M.local(f)(fa)
+}
+
+trait MonadAsyncOps extends MonadOps {
+
+  def liftFuture[F[_], A](f:Future[A])(implicit M:MonadAsync[F]):F[A] =
+    M.liftFuture(f)
+
 }
 
 
