@@ -132,8 +132,12 @@ private case class ErrorFuture(error: Throwable) extends Future[Nothing] {
 
 trait FutureMonad {
 
-  implicit def futureMonad(implicit ec: ExecutionContext): MonadError[Future, Throwable] with CoflatMap[Future] =
-    new CoflatMap[Future] with MonadError[Future, Throwable]{
+  implicit def futureMonad(implicit ec: ExecutionContext): MonadFuture[Future] with CoflatMap[Future] =
+    new CoflatMap[Future] with MonadFuture[Future]{
+
+      def liftFuture[A](f: Future[A]):Future[A] =
+        f
+
       def pure[A](x: A): Future[A] =
         FulfilledFuture(x)
 
@@ -241,8 +245,12 @@ object FutureTransfomations
 
 trait FutureWriterMonad {
 
-  implicit def futureWriterMonad[W](implicit ec:ExecutionContext, MW:MonadWriter[Writer[W, ?], W], T:Traverse[Writer[W, ?]]): MonadError[FutureWriter[W, ?], Throwable] with MonadWriter[FutureWriter[W, ?], W] =
-    new MonadError[FutureWriter[W, ?], Throwable] with MonadWriter[FutureWriter[W, ?], W] {
+  implicit def futureWriterMonad[W](implicit ec:ExecutionContext, MW:MonadWriter[Writer[W, ?], W], T:Traverse[Writer[W, ?]]): MonadFuture[FutureWriter[W, ?]] with MonadWriter[FutureWriter[W, ?], W] =
+    new MonadFuture[FutureWriter[W, ?]] with MonadWriter[FutureWriter[W, ?], W] {
+
+      def liftFuture[A](f: Future[A]):FutureWriter[W, A] =
+        FutureT[Writer[W, ?], A](f.map(MW.pure))
+
       def writer[A](aw: (W, A)): FutureWriter[W, A] =
         FutureT.fastF[Writer[W, ?], A](MW.writer(aw))(ec, MW, T)
 
@@ -313,8 +321,12 @@ object FutureWriterTransformations
 
 trait FutureErrorMonad  {
 
-  implicit def futureErrorMonad[E](implicit ec:ExecutionContext, ME:MonadError[Error[E, ?], E], T:Traverse[Error[E, ?]]):MonadError[FutureError[E, ?], E] =
-    new MonadError[FutureError[E, ?], E] {
+  implicit def futureErrorMonad[E](implicit ec:ExecutionContext, ME:MonadError[Error[E, ?], E], T:Traverse[Error[E, ?]]):MonadError[FutureError[E, ?], E] with MonadAsync[FutureError[E, ?]] =
+    new MonadError[FutureError[E, ?], E] with MonadAsync[FutureError[E, ?]] {
+
+      def liftFuture[A](f: Future[A]):FutureError[E, A] =
+        FutureT[Error[E, ?], A](f.map(ME.pure))
+
       def raiseError[A](e: E): FutureError[E, A] =
         FutureT.fastF[Error[E,?], A](ME.raiseError[A](e))(ec, ME, T)
 
@@ -381,8 +393,12 @@ trait FutureWriterErrorMonad {
    ec:ExecutionContext,
    MWE:MonadWriter[WriterError[W, E, ?], W] with MonadError[WriterError[W, E, ?], E],
    T:Traverse[WriterError[W, E, ?]]
-  ):MonadWriter[FutureWriterError[W, E, ?], W] with MonadError[FutureWriterError[W, E, ?], E] =
-    new MonadWriter[FutureWriterError[W, E, ?], W] with MonadError[FutureWriterError[W, E, ?], E] {
+  ):MonadWriter[FutureWriterError[W, E, ?], W] with MonadError[FutureWriterError[W, E, ?], E] with MonadAsync[FutureWriterError[W, E, ?]] =
+    new MonadWriter[FutureWriterError[W, E, ?], W] with MonadError[FutureWriterError[W, E, ?], E] with MonadAsync[FutureWriterError[W, E, ?]] {
+
+      def liftFuture[A](f: Future[A]):FutureWriterError[W, E, A] =
+        FutureT[WriterError[W, E, ?], A](f.map(MWE.pure))
+
       def writer[A](aw: (W, A)): FutureWriterError[W, E, A] =
         FutureT.fastF[WriterError[W, E, ?], A](MWE.writer(aw))(ec, MWE, T)
 

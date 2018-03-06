@@ -195,8 +195,11 @@ object ReaderErrorTransformations
 
 trait ReaderFutureMonad {
 
-  implicit def readerFutureMonad[R, E](implicit ec:ExecutionContext, ME:MonadError[Future, Throwable]):MonadReader[ReaderFuture[R, ?], R] with MonadError[ReaderFuture[R, ?], Throwable]
-    = new MonadReaderErrorImpl[Future, R, Throwable]()(ME) with MonadError[ReaderFuture[R, ?], Throwable]
+  implicit def readerFutureMonad[R, E](implicit ec:ExecutionContext, ME:MonadError[Future, Throwable]):MonadReader[ReaderFuture[R, ?], R] with MonadFuture[ReaderFuture[R, ?]]
+    = new MonadReaderErrorImpl[Future, R, Throwable]()(ME) with MonadFuture[ReaderFuture[R, ?]] {
+    def liftFuture[A](f: Future[A]): ReaderFuture[R, A] =
+      ReaderT[Future, R, A](_ => f)
+  }
 }
 
 object ReaderFutureMonads
@@ -306,8 +309,11 @@ object ReaderWriterErrorTransformations
 
 trait ReaderFutureErrorMonad {
 
-  implicit def readerFutureErrorMonad[R, E](implicit ec:ExecutionContext, M:MonadError[FutureError[E, ?], E]):MonadReader[ReaderFutureError[R, E, ?], R] with MonadError[ReaderFutureError[R, E, ?], E] =
-    new MonadReaderErrorImpl[FutureError[E, ?], R, E]()(M) {}
+  implicit def readerFutureErrorMonad[R, E](implicit ec:ExecutionContext, MEA:MonadError[FutureError[E, ?], E] with MonadAsync[FutureError[E, ?]]):MonadReader[ReaderFutureError[R, E, ?], R] with MonadError[ReaderFutureError[R, E, ?], E] with MonadAsync[ReaderFutureError[R, E, ?]] =
+    new MonadReaderErrorImpl[FutureError[E, ?], R, E]()(MEA)  with MonadAsync[ReaderFutureError[R, E, ?]]{
+      def liftFuture[A](f: Future[A]): ReaderFutureError[R, E, A] =
+        ReaderT[FutureError[E, ?], R, A](_ => MEA.liftFuture(f))
+    }
 }
 
 object ReaderFutureErrorMonads
@@ -385,9 +391,13 @@ object ReaderFutureWriterTransforms
     with IdMonad
 
 trait ReaderFutureWriterErrorMonad {
-  implicit def readerFutureWriterError[R, W, E](implicit ec:ExecutionContext, MW:MonadError[FutureWriterError[W, E, ?], E] with MonadWriter[FutureWriterError[W, E, ?], W]):
-    MonadReader[ReaderFutureWriterError[R, W, E, ?], R] with MonadError[ReaderFutureWriterError[R, W, E, ?], E] with MonadWriter[ReaderFutureWriterError[R, W, E, ?], W] =
-      new MonadReaderErrorImpl[FutureWriterError[W, E, ?], R, E] with MonadWriter[ReaderFutureWriterError[R, W, E, ?], W] {
+  implicit def readerFutureWriterError[R, W, E](implicit ec:ExecutionContext, MW:MonadError[FutureWriterError[W, E, ?], E] with MonadWriter[FutureWriterError[W, E, ?], W] with MonadAsync[FutureWriterError[W, E, ?]]):
+    MonadReader[ReaderFutureWriterError[R, W, E, ?], R] with MonadError[ReaderFutureWriterError[R, W, E, ?], E] with MonadWriter[ReaderFutureWriterError[R, W, E, ?], W] with MonadAsync[ReaderFutureWriterError[R, W, E, ?]] =
+      new MonadReaderErrorImpl[FutureWriterError[W, E, ?], R, E] with MonadWriter[ReaderFutureWriterError[R, W, E, ?], W] with MonadAsync[ReaderFutureWriterError[R, W, E, ?]] {
+
+        def liftFuture[A](f: Future[A]): ReaderFutureWriterError[R, W, E, A] =
+          ReaderT[FutureWriterError[W, E, ?], R, A](_ => MW.liftFuture(f))
+
         def writer[A](aw: (W, A)): ReaderFutureWriterError[R, W, E, A] =
           Kleisli[FutureWriterError[W, E, ?], R, A](_ => MW.writer(aw))
 
