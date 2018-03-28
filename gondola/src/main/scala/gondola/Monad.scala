@@ -99,6 +99,20 @@ trait MonadReaderOps extends MonadOps {
     M.local(f)(fa)
 }
 
+trait MonadStateOps extends MonadOps {
+  def get[F[_], S](implicit M:cats.MonadState[F, S]): F[S] =
+    M.get
+
+  def set[F[_], S](s: S)(implicit M:cats.MonadState[F, S]): F[Unit] =
+    M.set(s)
+
+  def modify[F[_], S](f: S => S)(implicit M:cats.MonadState[F, S]): F[Unit] =
+    M.flatMap(get)(s => set(f(s)))
+
+  def inspect[F[_], S, A](f: S => A)(implicit M:cats.MonadState[F, S]): F[A] =
+    M.map(get)(f)
+}
+
 trait MonadAsyncOps extends MonadOps {
 
   def liftFuture[F[_], A](f:Future[A])(implicit M:MonadAsync[F]):F[A] =
@@ -117,5 +131,7 @@ object MonadReader extends MonadReaderOps
 object MonadWriter extends MonadWriterOps
 
 object MonadWriterError extends MonadWriterOps
+
+object MonadState extends MonadStateOps
 
 
