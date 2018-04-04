@@ -2,8 +2,8 @@ import sbt.Keys._
 
 lazy val buildSettings = Seq(
   organization       := "io.higherState",
-  scalaVersion       := "2.12.3",
-  version            := "0.3.4",
+  scalaVersion       := "2.12.5",
+  version            := "0.4.0",
   javacOptions      ++= Seq("-target", "1.8", "-source", "1.8", "-Xlint:deprecation"),
   scalacOptions     ++= Seq(
     "-deprecation",
@@ -19,12 +19,12 @@ lazy val buildSettings = Seq(
   )
 )
 
-lazy val reflect = "org.scala-lang" % "scala-reflect" % "2.12.3"
-lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.2"
+lazy val reflect = "org.scala-lang" % "scala-reflect" % "2.12.5"
+lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.3"
 lazy val cats = "org.typelevel" %% "cats" % "0.9.0"
-lazy val akka = "com.typesafe.akka" %% "akka-actor" % "2.5.2"
-lazy val scalatestTest = "org.scalatest" %% "scalatest" % "3.0.1"  % "test"
-lazy val scalatest = "org.scalatest" %% "scalatest" % "3.0.1"
+lazy val akka = "com.typesafe.akka" %% "akka-actor" % "2.5.11"
+lazy val scalatestTest = "org.scalatest" %% "scalatest" % "3.0.5"  % "test"
+lazy val scalatest = "org.scalatest" %% "scalatest" % "3.0.5"
 lazy val kindplugin = compilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4")
 
 lazy val gondola = project
