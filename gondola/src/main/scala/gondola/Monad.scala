@@ -33,6 +33,12 @@ trait OptionOps {
       if (value.nonEmpty)
         pf.lift(value.get).fold[M[Option[S]]](monad.pure(None)){ v => monad.map(v)(Some(_))}
       else monad.pure(None)
+
+    def expected[E, M[_]](failure: => E)(implicit monad:cats.MonadError[M, E]):M[T] =
+      value.fold(monad.raiseError[T](failure))(monad.pure)
+
+    def expectedMap[E, M[_], S](failure: => E)(f: T => S)(implicit monad:cats.MonadError[M, E]):M[S] =
+      value.fold(monad.raiseError[S](failure))(t => monad.pure(f(t)))
   }
 }
 
